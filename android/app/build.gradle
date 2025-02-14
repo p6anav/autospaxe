@@ -1,0 +1,63 @@
+plugins {
+    id "com.android.application"
+    id "kotlin-android"
+    id "dev.flutter.flutter-gradle-plugin" // Must be added after the Android & Kotlin plugins
+}
+
+android {
+    namespace "com.example.autospaze"
+    namespace "com.baseflow.geolocator"
+    namespace "com.example.location" 
+
+    compileSdk 33  // Update to the latest stable SDK version
+
+    ndkVersion "25.1.8937393"  // Ensure a valid NDK version
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+
+    kotlinOptions {
+        jvmTarget = "1.8"
+    }
+
+    defaultConfig {
+        applicationId "com.example.autospaze" // Make sure it matches your package name
+        minSdk 21  // Minimum SDK version (21 is a safe default)
+        targetSdk 33  // Update to latest stable SDK version
+        versionCode 1
+        versionName "1.0.0"
+    }
+
+    signingConfigs {
+        release {
+            keyAlias "your_key_alias" // Replace with your actual alias
+            keyPassword "your_key_password" // Replace with your actual password
+            storeFile file("../keystore.jks") // Provide the correct path to your keystore
+            storePassword "your_keystore_password" // Replace with actual password
+        }
+    }
+
+    buildTypes {
+        release {
+            signingConfig signingConfigs.release
+            minifyEnabled true // Shrinks the code for optimization
+            shrinkResources true // Removes unused resources
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+        debug {
+            minifyEnabled false
+            signingConfig signingConfigs.release
+        }
+    }
+}
+
+flutter {
+    source = "../.."
+}
+
+dependencies {
+    implementation "org.jetbrains.kotlin:kotlin-stdlib:1.7.10"
+    implementation "androidx.core:core-ktx:1.9.0"
+}
