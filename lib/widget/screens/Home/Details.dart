@@ -90,12 +90,11 @@ Future<void> _calculateRoute(LatLng destination) async {
       context,
       MaterialPageRoute(
         builder: (context) => ParkingSpotDetailsPage(
-           idk:parkingSpot ['id']!,
           name: parkingSpot['name'] ?? 'Unknown',
           description: parkingSpot['description'] ?? 'No description available',
           imageUrl: parkingSpot['imageUrl'] ?? '',
           capacity: capacity,
-          location: location, 
+          location: location,
         ),
       ),
     );
@@ -126,7 +125,7 @@ class ParkingSpotDetailsPage extends StatelessWidget {
     required this.description,
     required this.imageUrl,
     required this.capacity,
-    required this.location, required idk,
+    required this.location,
   });
 
   @override

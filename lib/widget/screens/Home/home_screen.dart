@@ -61,6 +61,7 @@ class _HomeScreenState extends State<HomeScreen> {
   late Future<List<Map<String, dynamic>>> _futureParkingSpots;
   // Keep track of the current selected tab in the BottomNavigationBar
   int _currentIndex = 0;
+  
 
   // List of screens or widgets you want to show for each tab
   final List<Widget> _screens = [
@@ -82,6 +83,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final TextEditingController _searchController = TextEditingController();
   List<Polyline> _polylines = []; // For storing polylines between locations
   bool _locationPermissionGranted = false;
+  late final String parkingId;
 
   List<Map<String, dynamic>> _parkingLocations = [
     {
@@ -105,7 +107,8 @@ class _HomeScreenState extends State<HomeScreen> {
       "isVisible": true,
     },
     
-  ];Future<List<Map<String, dynamic>>> nearbyParkingSpots() async {
+  ];
+  Future<List<Map<String, dynamic>>> nearbyParkingSpots() async {
   try {
     final response = await http.get(Uri.parse('http://localhost:8080/api/parking-spots'));
 
@@ -578,21 +581,23 @@ Widget buildCardWithImageTextAndButton() {
     );
   }
 
- void _navigateToRoutePage(BuildContext context, int parkingId, String parkingName) {
+ void _navigateToRoutePage(BuildContext context, String parkingId, String parkingName) {
+  print("Navigating to Parking ID: $parkingId, Name: $parkingName"); 
   Navigator.push(
     context,
     MaterialPageRoute(
-      builder: (context) => TomTomRoutin(
+      builder: (context) => TomTomRoutint(
         currentLocation: _currentLocation!,
         onRouteUpdated: (route) {
           // Handle route update here if needed
         },
         searchQuery: parkingName, 
-        parkingId: parkingId.toString(), // Convert int to String
+        parkingId: parkingId, // Pass parkingId to the next screen
       ),
     ),
   );
 }
+
 
  
 
@@ -612,7 +617,7 @@ Widget buildCardWithImageTextAndButton() {
         description: parkingSpot['description']!,
         imageUrl: parkingSpot['imageUrl']!,
         capacity: capacity,  // Use the fallback value if needed
-        location: location, idk: null,  // Use the fallback value if needed
+        location: location,   // Use the fallback value if needed
       ),
     ),
   );
@@ -708,15 +713,14 @@ Widget buildCardWithImageTextAndButton() {
                           mainAxisAlignment: MainAxisAlignment.start,
                           children: [
                             ElevatedButton(
-                              onPressed: () {
-                                
-                                _navigateToRoutePage(
-                                  context,
-                            parkingSpot['id'] as int,
+                             onPressed: () {
+  _navigateToRoutePage(
+    context,
+    parkingSpot['id'].toString(),   // Ensure parking ID is a String
+    parkingSpot['name']!,
+  );
+},
 
-                                  parkingSpot['name']!,
-                                );
-                              },
                               style: ElevatedButton.styleFrom(
                                 foregroundColor: Colors.blue,
                                 padding: EdgeInsets.symmetric(
