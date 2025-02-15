@@ -3,6 +3,16 @@ import 'dart:math';
 import 'package:autospaze/widget/screens/maps/payment.dart';
 
 class NextPage extends StatelessWidget {
+
+  final String searchQuery;
+  final String parkingId;
+
+  const NextPage({
+    Key? key,
+    required this.searchQuery,
+    required this.parkingId,
+  }) : super(key: key);
+  
   @override
   Widget build(BuildContext context) {
     // Generate dummy QR code data

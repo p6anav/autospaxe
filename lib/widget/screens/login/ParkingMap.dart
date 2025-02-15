@@ -1,4 +1,5 @@
 import 'package:autospaze/widget/screens/maps/datatime.dart';
+import 'package:autospaze/widget/screens/maps/maps.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -222,18 +223,21 @@ class _TomTomRoutingPageState extends State<TomTomRoutint> {
       Map<String, dynamic>? parkingSpot = await fetchParkingSpotById(parkingId); // Fetch details
 
       if (parkingSpot != null) {
-        print("Fetched Parking Spot:");
+        print("Fetched Parkitestng Spot:");
         print("ID: ${parkingSpot['id']}, Name: ${parkingSpot['name']}");
         print("Latitude: ${parkingSpot['latitude']}, Longitude: ${parkingSpot['longitude']}");
         print("Description: ${parkingSpot['description']}");
         print("Image URL: ${parkingSpot['imageUrl']}");
 
         Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => DateTimeRangePickerScreen(),
-          ),
-        );
+  context,
+  MaterialPageRoute(
+    builder: (context) =>DateTimeRangePickerScreen(
+      parkingId: widget.parkingId,
+    ),
+  ),
+);
+
       } else {
         print("No parking spot found with ID: $parkingId");
       }

@@ -20,7 +20,7 @@ class _BottomnavState extends State<Bottomnav> {
   // List of screens corresponding to bottom navigation items
   final List<Widget> _screens = [
     HomeScreen(),
-    DateTimeRangePickerScreen(),  // Maps screen with DateTimePicker
+    DateTimeRangePickerScreen(parkingId: '',),  // Maps screen with DateTimePicker
     Bookmarker(), // Bookmarks screen
     Profile(),    // Profile screen
   ];
