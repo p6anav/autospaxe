@@ -40,6 +40,8 @@ class _SvgUpdaterState extends State<SvgUpdater> {
   double dragSensitivity = 3.0;
   String selectedVehicleType = "any";
   List<Map<String, dynamic>> parkingSlots = [];
+  String errorMessage = "";
+
   
 @override
 void initState() {
@@ -102,13 +104,23 @@ Future<void> fetchParkingDetails() async {
 
     if (response.statusCode == 200) {
       await loadJson(response.body); // Pass API response to loadJson
+      setState(() {
+        errorMessage = ''; // Clear any previous error messages on success
+      });
     } else {
-      print("Failed to load parking spot. Status code: ${response.statusCode}");
+      setState(() {
+        errorMessage = 'Failed to load parking details. Status code: ${response.statusCode}';
+      });
     }
   } catch (e) {
+    setState(() {
+      errorMessage = 'Please select a parking area first.';
+    });
     print("Error fetching parking spot: $e");
   }
 }
+
+
 
 
 
@@ -564,6 +576,8 @@ Future<void> loadJson(String jsonEncode) async {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+
+      
       appBar: AppBar(
         leading: IconButton(
           icon: Icon(Icons.arrow_back),
@@ -584,7 +598,14 @@ Future<void> loadJson(String jsonEncode) async {
       body: Column(
         children: [
 
-
+if (errorMessage.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Text(
+              errorMessage,
+              style: TextStyle(color: const Color.fromARGB(255, 12, 12, 12), fontSize: 20),
+            ),
+          ),
           
           // Parking Slot Layout
           Expanded(
