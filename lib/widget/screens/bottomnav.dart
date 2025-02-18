@@ -1,3 +1,4 @@
+import 'package:autospaze/widget/screens/maps/booking.dart';
 import 'package:flutter/material.dart';
 import 'Home/home_screen.dart'; // Import HomeScreen
 import 'maps/maps.dart';
@@ -20,7 +21,7 @@ class _BottomnavState extends State<Bottomnav> {
   // List of screens corresponding to bottom navigation items
   final List<Widget> _screens = [
     HomeScreen(),
-    DateTimeRangePickerScreen(parkingId: '',),  // Maps screen with DateTimePicker
+   NextPage (searchQuery: '', parkingId: '',),  // Maps screen with DateTimePicker
     Bookmarker(), // Bookmarks screen
     Profile(),    // Profile screen
   ];

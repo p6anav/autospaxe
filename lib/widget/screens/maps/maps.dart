@@ -41,6 +41,7 @@ class _SvgUpdaterState extends State<SvgUpdater> {
   String selectedVehicleType = "any";
   List<Map<String, dynamic>> parkingSlots = [];
   String errorMessage = "";
+  bool showErrorImage = false;
 
   
 @override
@@ -105,21 +106,22 @@ Future<void> fetchParkingDetails() async {
     if (response.statusCode == 200) {
       await loadJson(response.body); // Pass API response to loadJson
       setState(() {
-        errorMessage = ''; // Clear any previous error messages on success
+        errorMessage = 'Please select a parking area first'; // Clear any previous error messages on success
+        showErrorImage = false; // Ensure no error image is shown
       });
     } else {
       setState(() {
         errorMessage = 'Failed to load parking details. Status code: ${response.statusCode}';
+        showErrorImage = false; // Ensure no error image is shown
       });
     }
   } catch (e) {
     setState(() {
-      errorMessage = 'Please select a parking area first.';
+      showErrorImage = true; // Show error image
     });
     print("Error fetching parking spot: $e");
   }
 }
-
 
 
 
@@ -573,153 +575,159 @@ Future<void> loadJson(String jsonEncode) async {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-
-      
-      appBar: AppBar(
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back),
-          onPressed: () {
-            print("Back button pressed. Parking ID: ${widget.parkingId}");
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => DateTimeRangePickerScreen(
-                  parkingId: '',
-                ),
-              ),
-            );
-          },
-        ),
-      ),
+@override
+Widget build(BuildContext context) {
+  return Scaffold(
+    appBar: AppBar(
       backgroundColor: Colors.white,
-      body: Column(
-        children: [
-
-if (errorMessage.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Text(
-              errorMessage,
-              style: TextStyle(color: const Color.fromARGB(255, 12, 12, 12), fontSize: 20),
+      leading: IconButton(
+        icon: Icon(Icons.arrow_back),
+        onPressed: () {
+          print("Back button pressed. Parking ID: ${widget.parkingId}");
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => DateTimeRangePickerScreen(
+                parkingId: '',
+              ),
+            ),
+          );
+        },
+      ),
+    ),
+    backgroundColor: Colors.white,
+    body: Column(
+      children: [
+        // Error Image and Text
+        if (showErrorImage)
+          Align(
+            alignment: Alignment.bottomCenter, // Align to the bottom center
+            child: Column(
+              mainAxisSize: MainAxisSize.min, // Minimize the height of the column
+              children: [
+                Image.network(
+                  'https://res.cloudinary.com/dwdatqojd/image/upload/v1738778166/060c9fri-removebg-preview_lqj6eb.png', // Replace with your error image URL
+                  width: 200,
+                  height: 200,
+                ),
+                Text(
+                  'Please select a parking area first',
+                  style: TextStyle(color: Colors.red, fontSize: 16),
+                ),
+              ],
             ),
           ),
-          
-          // Parking Slot Layout
-          Expanded(
-            child: mockSlots.isEmpty
-                ? const Center(
-                    child: CircularProgressIndicator(color: Colors.blue),
-                  )
-                : GestureDetector(
-                    onPanUpdate: (details) {
-                      setState(() {
-                        dragOffset = Offset(
-                          dragOffset.dx +
-                              details.localPosition.dx * dragSensitivity,
-                          dragOffset.dy +
-                              details.localPosition.dy * dragSensitivity,
-                        );
+        // Parking Slot Layout
+        Expanded(
+          child: mockSlots.isEmpty
+              ? const Center(
+                  child: CircularProgressIndicator(color: Colors.blue),
+                )
+              : GestureDetector(
+                  onPanUpdate: (details) {
+                    setState(() {
+                      dragOffset = Offset(
+                        dragOffset.dx +
+                            details.localPosition.dx * dragSensitivity,
+                        dragOffset.dy +
+                            details.localPosition.dy * dragSensitivity,
+                      );
 
-                        // Implementing wraparound or infinite scroll horizontally
-                        if (dragOffset.dx > 3000) {
-                          dragOffset =
-                              Offset(dragOffset.dx - 3000, dragOffset.dy);
-                        } else if (dragOffset.dx < 0) {
-                          dragOffset =
-                              Offset(dragOffset.dx + 3000, dragOffset.dy);
-                        }
+                      // Implementing wraparound or infinite scroll horizontally
+                      if (dragOffset.dx > 3000) {
+                        dragOffset =
+                            Offset(dragOffset.dx - 3000, dragOffset.dy);
+                      } else if (dragOffset.dx < 0) {
+                        dragOffset =
+                            Offset(dragOffset.dx + 3000, dragOffset.dy);
+                      }
 
-                        // Implementing wraparound or infinite scroll vertically
-                        if (dragOffset.dy > 3000) {
-                          dragOffset =
-                              Offset(dragOffset.dx, dragOffset.dy - 3000);
-                        } else if (dragOffset.dy < 0) {
-                          dragOffset =
-                              Offset(dragOffset.dx, dragOffset.dy + 3000);
-                        }
-                      });
+                      // Implementing wraparound or infinite scroll vertically
+                      if (dragOffset.dy > 3000) {
+                        dragOffset =
+                            Offset(dragOffset.dx, dragOffset.dy - 3000);
+                      } else if (dragOffset.dy < 0) {
+                        dragOffset =
+                            Offset(dragOffset.dx, dragOffset.dy + 3000);
+                      }
+                    });
+                  },
+                  child: InteractiveViewer(
+                    panEnabled: true,
+                    scaleEnabled: true,
+                    minScale: 0.8,
+                    maxScale: 4.0,
+                    onInteractionUpdate: (details) {
+                      if (details.scale <= 0.3) {
+                        setState(() {
+                          dragOffset = Offset(0.0, 0.0);
+                        });
+                      }
                     },
-                    child: InteractiveViewer(
-                      panEnabled: true,
-                      scaleEnabled: true,
-                      minScale: 0.8,
-                      maxScale: 4.0,
-                      onInteractionUpdate: (details) {
-                        if (details.scale <= 0.3) {
-                          setState(() {
-                            dragOffset = Offset(0.0, 0.0);
-                          });
-                        }
-                      },
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
                       child: SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: SingleChildScrollView(
-                          scrollDirection: Axis.vertical,
-                          child: SizedBox(
-                            width: 3000,
-                            height: 3000,
-                            child: Stack(children: [
-                              for (int i = 0; i < numRows; i++)
-                                Positioned(
-                                  left: 20,
-                                  top: (80.0 + labelSpacing) * i,
-                                  child: Text(
-                                    String.fromCharCode(65 + i),
-                                    style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold),
-                                  ),
+                        scrollDirection: Axis.vertical,
+                        child: SizedBox(
+                          width: 800,
+                          height: 1500,
+                          child: Stack(children: [
+                            for (int i = 0; i < numRows; i++)
+                              Positioned(
+                                left: 20,
+                                top: (80.0 + labelSpacing) * i,
+                                child: Text(
+                                  String.fromCharCode(65 + i),
+                                  style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold),
                                 ),
-                              ...mockSlots.map((slot) {
-                                String slotId = slot['id'] ?? 'unknown';
-                                bool isSelected = selectedSlotId == slotId;
-                                return Positioned(
-                                  left: slot['x'] + dragOffset.dx,
-                                  top: slot['y'] + dragOffset.dy,
-                                  child: SlotWidget(
-                                    slot: slot,
-                                    progress: slotProgress[slotId] ?? 1.0,
-                                    isSelected: isSelected,
-                                    onSelect: () {
-                                      selectSlot(slotId);
-                                      showSlotDetails(slot);
-                                    },
-                                    getIcon: getSlotIcon,
-                                    timerText: formatRemainingTime(
-                                        slotTimers[slotId] ?? Duration.zero),
-                                  ),
-                                );
-                              }).toList(),
-                            ]),
-                          ),
+                              ),
+                            ...mockSlots.map((slot) {
+                              String slotId = slot['id'] ?? 'unknown';
+                              bool isSelected = selectedSlotId == slotId;
+                              return Positioned(
+                                left: slot['x'] + dragOffset.dx,
+                                top: slot['y'] + dragOffset.dy,
+                                child: SlotWidget(
+                                  slot: slot,
+                                  progress: slotProgress[slotId] ?? 1.0,
+                                  isSelected: isSelected,
+                                  onSelect: () {
+                                    selectSlot(slotId);
+                                    showSlotDetails(slot);
+                                  },
+                                  getIcon: getSlotIcon,
+                                  timerText: formatRemainingTime(
+                                      slotTimers[slotId] ?? Duration.zero),
+                                ),
+                              );
+                            }).toList(),
+                          ]),
                         ),
                       ),
                     ),
                   ),
+                ),
+        ),
+        // Legend Section
+        Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _buildLegendBox(Colors.blueAccent, "Bike"),
+              SizedBox(width: 10),
+              _buildLegendBox(Colors.orangeAccent, "Car"),
+              SizedBox(width: 10),
+              _buildLegendBox(const Color.fromARGB(255, 82, 23, 23), "Bus"),
+            ],
           ),
-
-          // Legend Section
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                _buildLegendBox(Colors.blueAccent, "Bike"),
-                SizedBox(width: 10),
-                _buildLegendBox(Colors.orangeAccent, "Car"),
-                SizedBox(width: 10),
-                _buildLegendBox(const Color.fromARGB(255, 82, 23, 23), "Bus"),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
+        ),
+      ],
+    ),
+  );
+}
 // Function to create the legend boxes
   Widget _buildLegendBox(Color color, String label) {
     return Row(
@@ -784,8 +792,8 @@ class SlotWidget extends StatelessWidget {
     Color fillColor = isSelected
         ? const Color.fromARGB(255, 40, 237, 10)
         : slot['availability'] == null || slot['availability'] == false
-            ?  Colors.white
-            :  const Color.fromARGB(255, 40, 237, 10);
+            ?   const Color.fromARGB(255, 40, 237, 10)
+            :  Colors.white;
 
     Color textColor = isSelected
         ? Colors.white // White text when selected
