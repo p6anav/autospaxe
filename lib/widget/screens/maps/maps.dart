@@ -784,8 +784,8 @@ class SlotWidget extends StatelessWidget {
     Color fillColor = isSelected
         ? const Color.fromARGB(255, 40, 237, 10)
         : slot['availability'] == null || slot['availability'] == false
-            ? const Color.fromARGB(255, 37, 255, 44)
-            : Colors.white;
+            ?  Colors.white
+            :  const Color.fromARGB(255, 40, 237, 10);
 
     Color textColor = isSelected
         ? Colors.white // White text when selected
@@ -830,11 +830,14 @@ class SlotWidget extends StatelessWidget {
                 color: fillColor,
                 borderRadius: BorderRadius.circular(4),
                 border: Border.all(
-                  color: slot['availability'] == false
-                      ? const Color.fromARGB(255, 40, 237, 10)
-                      : borderColor,
-                  width: 1.2,
-                ),
+  color: slot['type'] == 'bike' 
+      ? Colors.blue // Blue for bike
+      : slot['type'] == 'car' 
+          ? Colors.orange // Orange for car
+          : borderColor, // Default color
+  width: 1.2,
+),
+
               ),
               child: Stack(
                 children: [
