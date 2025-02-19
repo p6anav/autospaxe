@@ -1,5 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:autospaze/widget/models/user.dart';
+import 'package:autospaze/widget/providers/user_provider.dart';
+import 'package:autospaze/widget/screens/bookmarks/app.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:autospaze/widget/main_screen.dart';
@@ -7,7 +10,9 @@ import 'package:intl/date_time_patterns.dart';
 import 'package:autospaze/widget/screens/maps/datatime.dart';
 import 'package:autospaze/widget/screens/maps/booking.dart';
 import 'package:http/http.dart' as http;
+import 'package:provider/provider.dart';
 import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class SvgUpdater extends StatefulWidget {
   final String searchQuery;
@@ -19,7 +24,6 @@ class SvgUpdater extends StatefulWidget {
     required this.searchQuery,
     required this.parkingId,
     required this.parkingSlots,
-
   }) : super(key: key);
 
   @override
@@ -43,31 +47,30 @@ class _SvgUpdaterState extends State<SvgUpdater> {
   String errorMessage = "";
   bool showErrorImage = false;
 
-  
-@override
-void initState() {
-  super.initState();
+  @override
+  void initState() {
+    super.initState();
 
-  // Show the initial bottom sheet
-  WidgetsBinding.instance.addPostFrameCallback((_) {
-    showInitialBottomSheet(context, (selectedType) {
-      setState(() {
-        selectedVehicleType = selectedType;
+    // Show the initial bottom sheet
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      showInitialBottomSheet(context, (selectedType) {
+        setState(() {
+          selectedVehicleType = selectedType;
+        });
+        updateParkingSlots();
       });
-      updateParkingSlots();
     });
-  });
 
-  // Fetch slots from API and load them
-  fetchParkingDetails().then((_) {
-    if (parkingSlots.isNotEmpty) {
-      loadJson(jsonEncode(parkingSlots)); // Pass fetched slots
-    }
-  });
+    // Fetch slots from API and load them
+    fetchParkingDetails().then((_) {
+      if (parkingSlots.isNotEmpty) {
+        loadJson(jsonEncode(parkingSlots)); // Pass fetched slots
+      }
+    });
 
-  // Start progress updates
-  startProgressUpdates();
-}
+    // Start progress updates
+    startProgressUpdates();
+  }
 
   void updateParkingSlots() {
     setState(() {
@@ -95,165 +98,205 @@ void initState() {
     return Duration(hours: hours, minutes: minutes, seconds: seconds);
   }
 
- // Add this at the top
-Future<void> fetchParkingDetails() async {
-  try {
-    int parkingId = int.parse(widget.parkingId);
-    final response = await http.get(
-      Uri.parse('http://localhost:8080/api/parking-slots/spot/$parkingId'),
-    );
 
-    if (response.statusCode == 200) {
-      await loadJson(response.body); // Pass API response to loadJson
-      setState(() {
-        errorMessage = 'Please select a parking area first'; // Clear any previous error messages on success
-        showErrorImage = false; // Ensure no error image is shown
-      });
-    } else {
-      setState(() {
-        errorMessage = 'Failed to load parking details. Status code: ${response.statusCode}';
-        showErrorImage = false; // Ensure no error image is shown
-      });
-    }
-  } catch (e) {
-    setState(() {
-      showErrorImage = true; // Show error image
-    });
-    print("Error fetching parking spot: $e");
+Future<void> printUserId() async {
+  SharedPreferences prefs = await SharedPreferences.getInstance();
+  String? userId = prefs.getString('userId'); // Retrieve the user ID
+  if (userId != null) {
+    print('User ID: $userId');
+  } else {
+    print('User ID not found');
   }
 }
+Future<void> saveUserId(String userId) async {
+  SharedPreferences prefs = await SharedPreferences.getInstance();
+  await prefs.setString('userId', userId);
+}
+Future<void> holdSlot(String slotId, String userId) async {
+  // Define the base URL
+  String baseUrl = 'http://localhost:8080/api/parking-slots/$slotId/hold';
 
+  // Define the query parameters
+  Map<String, String> queryParams = {
+    'userId': userId,
+  };
 
+  // Construct the full URL with query parameters
+  Uri uri = Uri.parse(baseUrl).replace(queryParameters: queryParams);
 
+  // Make the PATCH request
+  final response = await http.patch(
+    uri,
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  );
 
-Future<Map<String, dynamic>?> fetchParkingSpotById(int parkingId) async {
-  try {
-    final response = await http.get(
-      Uri.parse('http://localhost:8080/api/parking-slots/spot/$parkingId'),
-    );
+  // Check the response status code
+  if (response.statusCode == 200) {
+    print('Slot held successfully');
+  } else {
+    print('Failed to hold slot: ${response.body}');
+  }
+}
+  // Add this at the top
+  Future<void> fetchParkingDetails() async {
+    try {
+      int parkingId = int.parse(widget.parkingId);
+      final response = await http.get(
+        Uri.parse('http://localhost:8080/api/parking-slots/spot/$parkingId'),
+      );
 
-    if (response.statusCode == 200) {
-      var decodedData = jsonDecode(response.body);
-
-      // Check if the response is a List or a Map
-      if (decodedData is List && decodedData.isNotEmpty) {
-        // Use the first item from the list
-        Map<String, dynamic> data = decodedData.first;
-
-        return {
-          'id': data['id'],
-          'name': data['parkingSpot']['name'],
-          'description': data['parkingSpot']['description'],
-          'imageUrl': data['parkingSpot']['imageUrl'],
-          'latitude': data['parkingSpot']['latitude'],
-          'longitude': data['parkingSpot']['longitude'],
-          'x': data['x'],
-          'y': data['y'],
-        };
-      } else if (decodedData is Map<String, dynamic>) {
-        // If it's already a Map
-        return {
-          'id': decodedData['id'],
-          'name': decodedData['parkingSpot']['name'],
-          'description': decodedData['parkingSpot']['description'],
-          'imageUrl': decodedData['parkingSpot']['imageUrl'],
-          'latitude': decodedData['latitude'],
-          'longitude': decodedData['longitude'],
-          'x': decodedData['x'],
-          'y': decodedData['y'],
-        };
+      if (response.statusCode == 200) {
+        await loadJson(response.body); // Pass API response to loadJson
+        setState(() {
+          errorMessage =
+              'Please select a parking area first'; // Clear any previous error messages on success
+          showErrorImage = false; // Ensure no error image is shown
+        });
       } else {
-        print("Unexpected response format: $decodedData");
+        setState(() {
+          errorMessage =
+              'Failed to load parking details. Status code: ${response.statusCode}';
+          showErrorImage = false; // Ensure no error image is shown
+        });
+      }
+    } catch (e) {
+      setState(() {
+        showErrorImage = true; // Show error image
+      });
+      print("Error fetching parking spot: $e");
+    }
+  }
+
+  Future<Map<String, dynamic>?> fetchParkingSpotById(int parkingId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('http://localhost:8080/api/parking-slots/spot/$parkingId'),
+      );
+
+      if (response.statusCode == 200) {
+        var decodedData = jsonDecode(response.body);
+
+        // Check if the response is a List or a Map
+        if (decodedData is List && decodedData.isNotEmpty) {
+          // Use the first item from the list
+          Map<String, dynamic> data = decodedData.first;
+
+          return {
+            'id': data['id'],
+            'name': data['parkingSpot']['name'],
+            'description': data['parkingSpot']['description'],
+            'imageUrl': data['parkingSpot']['imageUrl'],
+            'latitude': data['parkingSpot']['latitude'],
+            'longitude': data['parkingSpot']['longitude'],
+            'x': data['x'],
+            'y': data['y'],
+          };
+        } else if (decodedData is Map<String, dynamic>) {
+          // If it's already a Map
+          return {
+            'id': decodedData['id'],
+            'name': decodedData['parkingSpot']['name'],
+            'description': decodedData['parkingSpot']['description'],
+            'imageUrl': decodedData['parkingSpot']['imageUrl'],
+            'latitude': decodedData['latitude'],
+            'longitude': decodedData['longitude'],
+            'x': decodedData['x'],
+            'y': decodedData['y'],
+          };
+        } else {
+          print("Unexpected response format: $decodedData");
+          return null;
+        }
+      } else {
+        print(
+            "Failed to load parking spot. Status code: ${response.statusCode}");
         return null;
       }
-    } else {
-      print("Failed to load parking spot. Status code: ${response.statusCode}");
+    } catch (e) {
+      print("Error fetching parking spot by ID: $e");
       return null;
     }
-  } catch (e) {
-    print("Error fetching parking spot by ID: $e");
-    return null;
   }
-}
 
-Future<void> loadJson(String jsonEncode) async {
-  try {
-    List<dynamic> jsonResponse = jsonDecode(jsonEncode); // Use passed JSON
-    setState(() {
-      double initialX = 2; 
-      double initialY = 50; 
-      double xIncrement = 159; 
-      double extraRangeGap = 80; 
-      int slotsPerRow = 18; 
-      double x = initialX; 
-      double y = initialY; 
-      String currentRange = ''; 
+  Future<void> loadJson(String jsonEncode) async {
+    try {
+      List<dynamic> jsonResponse = jsonDecode(jsonEncode); // Use passed JSON
+      setState(() {
+        double initialX = 2;
+        double initialY = 50;
+        double xIncrement = 159;
+        double extraRangeGap = 80;
+        int slotsPerRow = 18;
+        double x = initialX;
+        double y = initialY;
+        String currentRange = '';
 
-      mockSlots = [];
-      List<Map<String, dynamic>> currentRangeSlots = [];
+        mockSlots = [];
+        List<Map<String, dynamic>> currentRangeSlots = [];
 
-      for (var slot in jsonResponse) {
-        String range = slot['range'] ?? '';
-        List<String> rangeParts = range.split('-');
-        int rangeStart = int.tryParse(rangeParts[0]) ?? 0;
-        int rangeEnd = rangeParts.length > 1
-            ? int.tryParse(rangeParts[1]) ?? 0
-            : rangeStart;
+        for (var slot in jsonResponse) {
+          String range = slot['range'] ?? '';
+          List<String> rangeParts = range.split('-');
+          int rangeStart = int.tryParse(rangeParts[0]) ?? 0;
+          int rangeEnd = rangeParts.length > 1
+              ? int.tryParse(rangeParts[1]) ?? 0
+              : rangeStart;
 
-        if (currentRange != range) {
-          if (currentRangeSlots.isNotEmpty) {
-            mockSlots.addAll(currentRangeSlots); 
-            currentRangeSlots.clear(); 
-            x = initialX; 
-            y += extraRangeGap; 
+          if (currentRange != range) {
+            if (currentRangeSlots.isNotEmpty) {
+              mockSlots.addAll(currentRangeSlots);
+              currentRangeSlots.clear();
+              x = initialX;
+              y += extraRangeGap;
+            }
+            currentRange = range;
           }
-          currentRange = range; 
+
+          double tempX = x;
+          double tempY = y;
+
+          // Swap x and y
+          double temp = tempX;
+          tempX = tempY;
+          tempY = temp;
+
+          slot['x'] = tempX;
+          slot['y'] = tempY;
+
+          currentRangeSlots.add(slot);
+          x += xIncrement;
+
+          if (currentRangeSlots.length % slotsPerRow == 0) {
+            x = initialX;
+          }
         }
 
-        double tempX = x; 
-        double tempY = y; 
-
-        // Swap x and y
-        double temp = tempX;
-        tempX = tempY;
-        tempY = temp;
-
-        slot['x'] = tempX;
-        slot['y'] = tempY;
-
-        currentRangeSlots.add(slot);
-        x += xIncrement;
-
-        if (currentRangeSlots.length % slotsPerRow == 0) {
-          x = initialX; 
+        if (currentRangeSlots.isNotEmpty) {
+          mockSlots.addAll(currentRangeSlots);
         }
-      }
 
-      if (currentRangeSlots.isNotEmpty) {
-        mockSlots.addAll(currentRangeSlots);
-      }
+        // Initialize slot progress and timers
+        for (var slot in mockSlots) {
+          String slotId = slot['id'] ?? 'unknown';
+          String? remainingTimeStr = slot['remainingTime'];
+          Duration remainingTime = remainingTimeStr != null
+              ? parseDuration(remainingTimeStr)
+              : Duration.zero;
+          slotProgress[slotId] = 1.0;
+          slotTimers[slotId] = remainingTime;
+        }
 
-      // Initialize slot progress and timers
-      for (var slot in mockSlots) {
-        String slotId = slot['id'] ?? 'unknown';
-        String? remainingTimeStr = slot['remainingTime'];
-        Duration remainingTime = remainingTimeStr != null
-            ? parseDuration(remainingTimeStr)
-            : Duration.zero;
-        slotProgress[slotId] = 1.0;
-        slotTimers[slotId] = remainingTime;
-      }
-
-      // Debug print
-      for (var slot in mockSlots) {
-        print('Slot: id = ${slot['id']}, x = ${slot['x']}, y = ${slot['y']}');
-      }
-    });
-  } catch (e) {
-    debugPrint('Error loading JSON: $e');
+        // Debug print
+        for (var slot in mockSlots) {
+          print('Slot: id = ${slot['id']}, x = ${slot['x']}, y = ${slot['y']}');
+        }
+      });
+    } catch (e) {
+      debugPrint('Error loading JSON: $e');
+    }
   }
-}
-
 
   String formatRemainingTime(Duration duration) {
     if (duration == Duration.zero) return '';
@@ -427,142 +470,150 @@ Future<void> loadJson(String jsonEncode) async {
     );
   }
 
-  void showSlotDetails(Map<String, dynamic> slot) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled:
-          true, // Allow the bottom sheet to be as tall as its content
-      backgroundColor: Colors.white, // Optional: Customize the background color
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(20),
-          topRight: Radius.circular(20),
-        ),
+ void showSlotDetails(BuildContext context, Map<String, dynamic> slot) {
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.white,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.only(
+        topLeft: Radius.circular(20),
+        topRight: Radius.circular(20),
       ),
-      builder: (BuildContext context) {
-        String slotId = slot['id'] ?? 'Unknown';
-        String type = slot['type'] ?? 'Unknown';
-        String startTime = slot['startTime'] ?? 'Unknown';
-        String exitTime = slot['exitTime'] ?? 'Unknown';
+    ),
+    builder: (BuildContext context) {
+      String slotId = slot['id'] ?? 'Unknown';
+      String type = slot['type'] ?? 'Unknown';
+      bool isAvailable = slot['availability'] ?? false;
+      bool isHeld = slot['hold'] ?? false;
 
-        Duration remainingTime = slotTimers[slotId] ?? Duration.zero;
-        String formattedTime = formatRemainingTime(remainingTime);
+      print('Slot Details: $slotId');
 
-        bool isAvailable = slot['availability'] ?? false;
-
-        return Padding(
-          padding: const EdgeInsets.all(16.0), // Optional: Customize padding
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Slot Details: $slotId',
-                    style: TextStyle(
-                      fontSize: 23,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.blueAccent,
-                    ),
+      return Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Slot Details: $slotId',
+                  style: TextStyle(
+                    fontSize: 23,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.blueAccent,
                   ),
-                  IconButton(
-                    icon: Icon(Icons.close, color: Colors.black, size: 30),
-                    onPressed: () =>
-                        Navigator.of(context).pop(), // Close the bottom sheet
-                  ),
-                ],
-              ),
-              SizedBox(height: 40),
-              Text('Type: $type'),
-              Text('Remaining Time: $formattedTime'),
-              SizedBox(height: 40),
-              if (isAvailable) // Show "Book Slot" button only if the slot is available
-                ElevatedButton(
-                  onPressed: () async {
-                    if (widget.parkingId == null ||
-                        widget.parkingId.trim().isEmpty) {
-                      print("Error: Parking ID is empty");
-                      return;
-                    }
-                    try {
-                      int parkingId = int.parse(widget.parkingId.trim());
-                      Map<String, dynamic>? parkingSpot =
-                          await fetchParkingSpotById(parkingId);
-                      if (parkingSpot != null) {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => NextPage(
-                              parkingId: widget.parkingId,
-                              searchQuery: '',
-                            ),
-                          ),
-                        );
-                      } else {
-                        print("No spot found for ID: $parkingId");
-                      }
-                    } catch (e) {
-                      print("Error fetching parking spots: $e");
-                    } catch (e) {
-                      print("Error fetching parking spots: $e");
-                    }
-                  },
-
-                  // Show dialog when the user books the slot
-
-                  // Optionally close bottom sheet after booking (if any)
-
-                  style: ButtonStyle(
-                    backgroundColor:
-                        MaterialStateProperty.all<Color>(Colors.green),
-                    padding: MaterialStateProperty.all<EdgeInsets>(
-                        EdgeInsets.symmetric(horizontal: 30, vertical: 20)),
-                    shape: MaterialStateProperty.all<RoundedRectangleBorder>(
-                      RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(30),
-                      ),
-                    ),
-                    elevation: MaterialStateProperty.all(5),
-                    textStyle: MaterialStateProperty.all<TextStyle>(
-                      TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white),
-                    ),
-                  ),
-                  child: Text('Book Slot'),
                 ),
-              if (!isAvailable) // If the slot is not available, show a disabled button
-                ElevatedButton(
-                  onPressed: null, // Disable the button
-                  style: ButtonStyle(
-                    backgroundColor: MaterialStateProperty.all<Color>(
-                        Colors.grey), // Disabled color
-                    padding: MaterialStateProperty.all<EdgeInsets>(
-                        EdgeInsets.symmetric(horizontal: 30, vertical: 12)),
-                    shape: MaterialStateProperty.all<RoundedRectangleBorder>(
-                        RoundedRectangleBorder(
+                IconButton(
+                  icon: Icon(Icons.close, color: Colors.black, size: 30),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ],
+            ),
+            SizedBox(height: 40),
+            Text('Type: $type'),
+            SizedBox(height: 20),
+            if (isHeld)
+              Text('Status: Slot is Held', style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold)),
+            if (!isAvailable)
+              Text('Status: Slot Unavailable', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+            SizedBox(height: 40),
+            if (isAvailable && !isHeld)
+              ElevatedButton(
+                onPressed: () async {
+                  // Get the user ID from UserProvider
+                  final userProvider = Provider.of<UserProvider>(context, listen: false);
+                  final User? user = userProvider.user;
+
+                  if (user != null) {
+                    // Call the API to hold the slot
+                    final response = await http.patch(
+                      Uri.parse('http://localhost:8080/api/parking-slots/$slotId/hold'),
+                      body: {'userId': user.id},
+                    );
+
+                    if (response.statusCode == 200) {
+                      // Navigate to the next page if the slot is held successfully
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => Bookmarker(),
+                        ),
+                      );
+                    } else {
+                      // Show an error message
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Failed to hold the slot')),
+                      );
+                    }
+                  } else {
+                    // Show an error message if user is not logged in
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('User not logged in')),
+                    );
+                  }
+                },
+                style: ButtonStyle(
+                  backgroundColor: MaterialStateProperty.all<Color>(Colors.green),
+                  padding: MaterialStateProperty.all<EdgeInsets>(
+                    EdgeInsets.symmetric(horizontal: 30, vertical: 20),
+                  ),
+                  shape: MaterialStateProperty.all<RoundedRectangleBorder>(
+                    RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(30),
-                    )),
-                    elevation: MaterialStateProperty.all(
-                        0), // Remove elevation for disabled state
-                    textStyle: MaterialStateProperty.all<TextStyle>(
-                      TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white),
                     ),
                   ),
-                  child: Text('Slot Unavailable'),
+                  elevation: MaterialStateProperty.all(5),
+                  textStyle: MaterialStateProperty.all<TextStyle>(
+                    TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
                 ),
-            ],
-          ),
-        );
-      },
-    );
-  }
+                child: Text('Book Slot'),
+              ),
+            if (!isAvailable || isHeld)
+              ElevatedButton(
+                onPressed: null,
+                style: ButtonStyle(
+                  backgroundColor: MaterialStateProperty.all<Color>(isHeld ? Colors.orange : Colors.grey),
+                  padding: MaterialStateProperty.all<EdgeInsets>(
+                    EdgeInsets.symmetric(horizontal: 30, vertical: 12),
+                  ),
+                  shape: MaterialStateProperty.all<RoundedRectangleBorder>(
+                    RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                  ),
+                  elevation: MaterialStateProperty.all(0),
+                  textStyle: MaterialStateProperty.all<TextStyle>(
+                    TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+                child: Text(isHeld ? 'Slot is Held' : 'Slot Unavailable'),
+              ),
+          ],
+        ),
+      );
+    },
+  );
+}
+Future<String> getUserId() async {
+  SharedPreferences prefs = await SharedPreferences.getInstance();
+  return prefs.getString('userId') ?? 'defaultUserId'; // Replace 'defaultUserId' with a default value if needed
+}
+
+
+
+
 
   Widget getSlotIcon(String? type) {
     switch (type) {
@@ -575,159 +626,162 @@ Future<void> loadJson(String jsonEncode) async {
     }
   }
 
-@override
-Widget build(BuildContext context) {
-  return Scaffold(
-    appBar: AppBar(
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back),
+          onPressed: () {
+            print("Back button pressed. Parking ID: ${widget.parkingId}");
+            
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => DateTimeRangePickerScreen(
+                  parkingId: '',
+                ),
+              ),
+            );
+          },
+        ),
+      ),
       backgroundColor: Colors.white,
-      leading: IconButton(
-        icon: Icon(Icons.arrow_back),
-        onPressed: () {
-          print("Back button pressed. Parking ID: ${widget.parkingId}");
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => DateTimeRangePickerScreen(
-                parkingId: '',
+      body: Column(
+        children: [
+          // Error Image and Text
+          if (showErrorImage)
+            Align(
+              alignment: Alignment.bottomCenter, // Align to the bottom center
+              child: Column(
+                mainAxisSize:
+                    MainAxisSize.min, // Minimize the height of the column
+                children: [
+                  Image.network(
+                    'https://res.cloudinary.com/dwdatqojd/image/upload/v1738778166/060c9fri-removebg-preview_lqj6eb.png', // Replace with your error image URL
+                    width: 200,
+                    height: 200,
+                  ),
+                  Text(
+                    'Please select a parking area first',
+                    style: TextStyle(color: Colors.red, fontSize: 16),
+                  ),
+                ],
               ),
             ),
-          );
-        },
-      ),
-    ),
-    backgroundColor: Colors.white,
-    body: Column(
-      children: [
-        // Error Image and Text
-        if (showErrorImage)
-          Align(
-            alignment: Alignment.bottomCenter, // Align to the bottom center
-            child: Column(
-              mainAxisSize: MainAxisSize.min, // Minimize the height of the column
-              children: [
-                Image.network(
-                  'https://res.cloudinary.com/dwdatqojd/image/upload/v1738778166/060c9fri-removebg-preview_lqj6eb.png', // Replace with your error image URL
-                  width: 200,
-                  height: 200,
-                ),
-                Text(
-                  'Please select a parking area first',
-                  style: TextStyle(color: Colors.red, fontSize: 16),
-                ),
-              ],
-            ),
-          ),
-        // Parking Slot Layout
-        Expanded(
-          child: mockSlots.isEmpty
-              ? const Center(
-                  child: CircularProgressIndicator(color: Colors.blue),
-                )
-              : GestureDetector(
-                  onPanUpdate: (details) {
-                    setState(() {
-                      dragOffset = Offset(
-                        dragOffset.dx +
-                            details.localPosition.dx * dragSensitivity,
-                        dragOffset.dy +
-                            details.localPosition.dy * dragSensitivity,
-                      );
+          // Parking Slot Layout
+          Expanded(
+            child: mockSlots.isEmpty
+                ? const Center(
+                    child: CircularProgressIndicator(color: Colors.blue),
+                  )
+                : GestureDetector(
+                    onPanUpdate: (details) {
+                      setState(() {
+                        dragOffset = Offset(
+                          dragOffset.dx +
+                              details.localPosition.dx * dragSensitivity,
+                          dragOffset.dy +
+                              details.localPosition.dy * dragSensitivity,
+                        );
 
-                      // Implementing wraparound or infinite scroll horizontally
-                      if (dragOffset.dx > 3000) {
-                        dragOffset =
-                            Offset(dragOffset.dx - 3000, dragOffset.dy);
-                      } else if (dragOffset.dx < 0) {
-                        dragOffset =
-                            Offset(dragOffset.dx + 3000, dragOffset.dy);
-                      }
+                        // Implementing wraparound or infinite scroll horizontally
+                        if (dragOffset.dx > 3000) {
+                          dragOffset =
+                              Offset(dragOffset.dx - 3000, dragOffset.dy);
+                        } else if (dragOffset.dx < 0) {
+                          dragOffset =
+                              Offset(dragOffset.dx + 3000, dragOffset.dy);
+                        }
 
-                      // Implementing wraparound or infinite scroll vertically
-                      if (dragOffset.dy > 3000) {
-                        dragOffset =
-                            Offset(dragOffset.dx, dragOffset.dy - 3000);
-                      } else if (dragOffset.dy < 0) {
-                        dragOffset =
-                            Offset(dragOffset.dx, dragOffset.dy + 3000);
-                      }
-                    });
-                  },
-                  child: InteractiveViewer(
-                    panEnabled: true,
-                    scaleEnabled: true,
-                    minScale: 0.8,
-                    maxScale: 4.0,
-                    onInteractionUpdate: (details) {
-                      if (details.scale <= 0.3) {
-                        setState(() {
-                          dragOffset = Offset(0.0, 0.0);
-                        });
-                      }
+                        // Implementing wraparound or infinite scroll vertically
+                        if (dragOffset.dy > 3000) {
+                          dragOffset =
+                              Offset(dragOffset.dx, dragOffset.dy - 3000);
+                        } else if (dragOffset.dy < 0) {
+                          dragOffset =
+                              Offset(dragOffset.dx, dragOffset.dy + 3000);
+                        }
+                      });
                     },
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
+                    child: InteractiveViewer(
+                      panEnabled: true,
+                      scaleEnabled: true,
+                      minScale: 0.8,
+                      maxScale: 4.0,
+                      onInteractionUpdate: (details) {
+                        if (details.scale <= 0.3) {
+                          setState(() {
+                            dragOffset = Offset(0.0, 0.0);
+                          });
+                        }
+                      },
                       child: SingleChildScrollView(
-                        scrollDirection: Axis.vertical,
-                        child: SizedBox(
-                          width: 800,
-                          height: 1500,
-                          child: Stack(children: [
-                            for (int i = 0; i < numRows; i++)
-                              Positioned(
-                                left: 20,
-                                top: (80.0 + labelSpacing) * i,
-                                child: Text(
-                                  String.fromCharCode(65 + i),
-                                  style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold),
+                        scrollDirection: Axis.horizontal,
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.vertical,
+                          child: SizedBox(
+                            width: 800,
+                            height: 1500,
+                            child: Stack(children: [
+                              for (int i = 0; i < numRows; i++)
+                                Positioned(
+                                  left: 20,
+                                  top: (80.0 + labelSpacing) * i,
+                                  child: Text(
+                                    String.fromCharCode(65 + i),
+                                    style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold),
+                                  ),
                                 ),
-                              ),
-                            ...mockSlots.map((slot) {
-                              String slotId = slot['id'] ?? 'unknown';
-                              bool isSelected = selectedSlotId == slotId;
-                              return Positioned(
-                                left: slot['x'] + dragOffset.dx,
-                                top: slot['y'] + dragOffset.dy,
-                                child: SlotWidget(
-                                  slot: slot,
-                                  progress: slotProgress[slotId] ?? 1.0,
-                                  isSelected: isSelected,
-                                  onSelect: () {
-                                    selectSlot(slotId);
-                                    showSlotDetails(slot);
-                                  },
-                                  getIcon: getSlotIcon,
-                                  timerText: formatRemainingTime(
-                                      slotTimers[slotId] ?? Duration.zero),
-                                ),
-                              );
-                            }).toList(),
-                          ]),
+                              ...mockSlots.map((slot) {
+                                String slotId = slot['id'] ?? 'unknown';
+                                bool isSelected = selectedSlotId == slotId;
+                                return Positioned(
+                                  left: slot['x'] + dragOffset.dx,
+                                  top: slot['y'] + dragOffset.dy,
+                                  child: SlotWidget(
+                                    slot: slot,
+                                    progress: slotProgress[slotId] ?? 1.0,
+                                    isSelected: isSelected,
+                                    onSelect: () {
+                                      selectSlot(slotId);
+                                      showSlotDetails(context,slot);
+                                    },
+                                    getIcon: getSlotIcon,
+                                    timerText: formatRemainingTime(
+                                        slotTimers[slotId] ?? Duration.zero),
+                                  ),
+                                );
+                              }).toList(),
+                            ]),
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
-        ),
-        // Legend Section
-        Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _buildLegendBox(Colors.blueAccent, "Bike"),
-              SizedBox(width: 10),
-              _buildLegendBox(Colors.orangeAccent, "Car"),
-              SizedBox(width: 10),
-              _buildLegendBox(const Color.fromARGB(255, 82, 23, 23), "Bus"),
-            ],
           ),
-        ),
-      ],
-    ),
-  );
-}
+          // Legend Section
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _buildLegendBox(Colors.blueAccent, "Bike"),
+                SizedBox(width: 10),
+                _buildLegendBox(Colors.orangeAccent, "Car"),
+                SizedBox(width: 10),
+                _buildLegendBox(const Color.fromARGB(255, 82, 23, 23), "Bus"),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
 // Function to create the legend boxes
   Widget _buildLegendBox(Color color, String label) {
     return Row(
@@ -788,12 +842,14 @@ class SlotWidget extends StatelessWidget {
             : (slot['reserved'] == 'bike')
                 ? Colors.blueAccent
                 : const Color.fromARGB(255, 40, 237, 10);
+Color fillColor = isSelected
+        ? const Color.fromARGB(255, 40, 237, 10) // Green for selected slot
+        : slot['hold'] == true
+            ? const Color.fromARGB(255, 255, 165, 0) // Orange for held slots
+            : slot['availability'] == null || slot['availability'] == false
+                ? const Color.fromARGB(255, 40, 237, 10) // Red for unavailable slots
+                : Colors.white; // White for available slots
 
-    Color fillColor = isSelected
-        ? const Color.fromARGB(255, 40, 237, 10)
-        : slot['availability'] == null || slot['availability'] == false
-            ?   const Color.fromARGB(255, 40, 237, 10)
-            :  Colors.white;
 
     Color textColor = isSelected
         ? Colors.white // White text when selected
@@ -838,14 +894,13 @@ class SlotWidget extends StatelessWidget {
                 color: fillColor,
                 borderRadius: BorderRadius.circular(4),
                 border: Border.all(
-  color: slot['type'] == 'bike' 
-      ? Colors.blue // Blue for bike
-      : slot['type'] == 'car' 
-          ? Colors.orange // Orange for car
-          : borderColor, // Default color
-  width: 1.2,
-),
-
+                  color: slot['type'] == 'bike'
+                      ? Colors.blue // Blue for bike
+                      : slot['type'] == 'car'
+                          ? Colors.orange // Orange for car
+                          : borderColor, // Default color
+                  width: 1.2,
+                ),
               ),
               child: Stack(
                 children: [

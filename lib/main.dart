@@ -1,3 +1,5 @@
+import 'package:autospaze/widget/providers/user_provider.dart';
+import 'package:autospaze/widget/screens/login/login_page.dart';
 import 'package:autospaze/widget/screens/login/onboarding_screen.dart';
 import 'package:autospaze/widget/screens/login/signup_page.dart';
 import 'package:autospaze/widget/screens/login/test.dart';
@@ -15,10 +17,11 @@ import 'package:autospaze/widget/screens/onboardingscreen/screen.dart';
 
 // Import your MainScreen class
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
   runApp(
     ChangeNotifierProvider(
-      create: (_) => VehicleTypeProvider(),
+      create: (_) => UserProvider(),
       child: MyApp(),
     ),
   );

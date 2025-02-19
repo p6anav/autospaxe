@@ -1,7 +1,10 @@
 import 'dart:convert';
 
+import 'package:autospaze/widget/models/user.dart';
+import 'package:autospaze/widget/providers/user_provider.dart';
 import 'package:autospaze/widget/screens/Home/vehicle.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'signup_page.dart';
 import 'package:http/http.dart' as http;
@@ -55,59 +58,60 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
     Navigator.push(context, MaterialPageRoute(builder: (context) => const SignUpPage()));
   }
 Future<void> _loginUser(BuildContext context) async {
-  try {
-    final url = Uri.parse("http://localhost:8080/api/auth/login"); // Use 10.0.2.2 for Android Emulator
+    try {
+      final url = Uri.parse("http://localhost:8080/api/auth/login");
 
-    Map<String, String> loginData = {
-      "email": _emailController.text.trim(),
-      "password": _passwordController.text.trim(),
-    };
+      Map<String, String> loginData = {
+        "email": _emailController.text.trim(),
+        "password": _passwordController.text.trim(),
+      };
 
-    final response = await http.post(
-      url,
-      headers: {"Content-Type": "application/json"},
-      body: jsonEncode(loginData),
-    );
+      final response = await http.post(
+        url,
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode(loginData),
+      );
 
-    print("Response Code: ${response.statusCode}");
-    print("Response Body: ${response.body}");
+      print("Response Code: ${response.statusCode}");
+      print("Response Body: ${response.body}");
 
-    if (response.statusCode == 200) {
-      final responseData = jsonDecode(response.body);
-      
-      // Convert userId to String before storing
-      String userId = responseData['userId'].toString();
+      if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.body);
 
-      // Save user ID to SharedPreferences
-      SharedPreferences prefs = await SharedPreferences.getInstance();
-      await prefs.setString('user_id', userId);
+        // Convert userId to String before storing
+        String userId = responseData['userId'].toString();
+        String userEmail = responseData['email'].toString();
 
-      print("Login Successful. User ID: $userId");
+        // Set user in UserProvider
+        final userProvider = Provider.of<UserProvider>(context, listen: false);
+        await userProvider.setUser(User(id: userId, email: userEmail));
 
-      // Navigate to AddVehicleApp() after login
-      if (context.mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => VehicleForm()),
-        );
+        print("Login Successful. User ID: $userId");
+
+        // Navigate to VehicleForm after login
+        if (context.mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => VehicleForm()),
+          );
+        }
+      } else {
+        print("Login Failed: ${response.body}");
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text("Login Failed: ${response.body}")),
+          );
+        }
       }
-    } else {
-      print("Login Failed: ${response.body}");
+    } catch (e) {
+      print("Error: $e");
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Login Failed: ${response.body}")),
+          SnackBar(content: Text("An error occurred. Please try again.")),
         );
       }
     }
-  } catch (e) {
-    print("Error: $e");
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("An error occurred. Please try again.")),
-      );
-    }
   }
-}
 
 // Function to retrieve the stored user ID
 Future<String?> getUserId() async {
@@ -166,7 +170,7 @@ Future<String?> getUserId() async {
                     ),
                     const SizedBox(height: 20),
                     Image.network(
-            'https://res.cloudinary.com/dwdatqojd/image/upload/v1738778483/knnx_ioyjrq.png', // Replace with your network image URL
+            '', // Replace with your network image URL
             width: 80, // Adjust size of logo
             height: 80,
             fit: BoxFit.contain, // Adjust the fit property as needed
