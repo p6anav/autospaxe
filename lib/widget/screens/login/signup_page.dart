@@ -1,12 +1,9 @@
 import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'login_page.dart';
-import 'package:autospaze/widget/main_screen.dart';
-import 'package:autospaze/widget/screens/Home/vehicle.dart';
 import 'package:http/http.dart' as http;
-
+import 'package:autospaze/widget/services/api_service.dart';  // Import the ApiService
 
 class SignUpPage extends StatefulWidget {
   const SignUpPage({super.key});
@@ -28,19 +25,19 @@ class _SignUpPageState extends State<SignUpPage> with SingleTickerProviderStateM
   late FocusNode _confirmPasswordFocusNode;
   bool _isLoading = false;
 
-  
-
   String? _emailError;
   String? _usernameError;
   String? _passwordError;
   String? _confirmPasswordError;
+
+  final ApiService apiService = ApiService(); // Create an instance of ApiService
 
   @override
   void initState() {
     super.initState();
     _animationController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1000), // Slower animation
+      duration: const Duration(milliseconds: 1000),
     );
     _animation = Tween<Offset>(
       begin: const Offset(0, 1),
@@ -70,26 +67,42 @@ class _SignUpPageState extends State<SignUpPage> with SingleTickerProviderStateM
   void _navigateToLoginPage() {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => const LoginPage ()),
+      MaterialPageRoute(builder: (context) => const LoginPage()),
     );
   }
 
-  Future<void> signupUser(String username, String email, String password) async {
-    final url = Uri.parse('http://localhost:8080/api/auth/signup'); // Backend URL
+  Future<void> signupUser() async {
+    final username = _usernameController.text.trim();
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+    final confirmPassword = _confirmPasswordController.text.trim();
+
+    if (username.isEmpty) {
+      setState(() => _usernameError = 'Username is required');
+      return;
+    }
+    if (email.isEmpty) {
+      setState(() => _emailError = 'Email is required');
+      return;
+    }
+    if (password.isEmpty) {
+      setState(() => _passwordError = 'Password is required');
+      return;
+    }
+    if (confirmPassword.isEmpty) {
+      setState(() => _confirmPasswordError = 'Confirm password is required');
+      return;
+    }
+    if (password != confirmPassword) {
+      setState(() => _confirmPasswordError = 'Passwords do not match');
+      return;
+    }
 
     setState(() {
       _isLoading = true;
     });
 
-    final response = await http.post(
-      url,
-      headers: {"Content-Type": "application/json"},
-      body: jsonEncode({
-        "username": username,
-        "email": email,
-        "password": password
-      }),
-    );
+    final response = await apiService.signup(username, email, password);
 
     setState(() {
       _isLoading = false;
@@ -102,45 +115,40 @@ class _SignUpPageState extends State<SignUpPage> with SingleTickerProviderStateM
       await prefs.setInt('userId', userId);
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Signup successful! User ID: $userId"))
+        SnackBar(content: Text("Signup successful! User ID: $userId")),
       );
 
-      // Navigate to another screen after signup (Example: HomeScreen)
-    Navigator.pushReplacement(
-  context,
-  MaterialPageRoute(builder: (context) => LoginPage()),
-);
-
+      // Navigate to another screen after signup (Example: LoginPage)
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => LoginPage()),
+      );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Signup failed: ${response.body}"))
+        SnackBar(content: Text("Signup failed: ${response.body}")),
       );
     }
   }
-  void _validateSignUp() {
-  setState(() {
-    _emailError = _validateEmail(_emailController.text);
-    _usernameError = _usernameController.text.isEmpty ? 'Please enter a username' : null;
-    _passwordError = _validatePassword(_passwordController.text);
-    _confirmPasswordError = _confirmPasswordController.text != _passwordController.text
-        ? 'Passwords do not match'
-        : null;
-  });
 
-  if (_emailError == null &&
-      _usernameError == null &&
-      _passwordError == null &&
-      _confirmPasswordError == null) {
-    signupUser(
-      _usernameController.text.trim(),  // 1st argument (username)
-      _emailController.text.trim(),     // 2nd argument (email)
-      _passwordController.text.trim(),  // 3rd argument (password)
-    ); // Call register function if all fields are valid
+  void _validateSignUp() {
+    setState(() {
+      _emailError = _validateEmail(_emailController.text);
+      _usernameError = _usernameController.text.isEmpty ? 'Please enter a username' : null;
+      _passwordError = _validatePassword(_passwordController.text);
+      _confirmPasswordError = _confirmPasswordController.text != _passwordController.text
+          ? 'Passwords do not match'
+          : null;
+    });
+
+    if (_emailError == null &&
+        _usernameError == null &&
+        _passwordError == null &&
+        _confirmPasswordError == null) {
+      signupUser();
+    }
   }
-}
 
   String? _validateEmail(String email) {
-    // Check if the email is in a valid format (simple check for now)
     final emailRegex = RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
     if (email.isEmpty) {
       return 'Please enter your email';
@@ -151,7 +159,6 @@ class _SignUpPageState extends State<SignUpPage> with SingleTickerProviderStateM
   }
 
   String? _validatePassword(String password) {
-    // Validate password: At least one uppercase, one number, one special char, and at least 8 characters
     final passwordRegex = RegExp(r'^(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$');
     if (password.isEmpty) {
       return 'Please enter a password';
@@ -192,11 +199,11 @@ class _SignUpPageState extends State<SignUpPage> with SingleTickerProviderStateM
                     ),
                     const SizedBox(height: 20),
                     Image.network(
-            'https://res.cloudinary.com/dwdatqojd/image/upload/v1738778483/knnx_ioyjrq.png', // Replace with your network image URL
-            width: 80, // Adjust size of logo
-            height: 80,
-            fit: BoxFit.contain, // Adjust the fit property as needed
-          ),
+                      'https://res.cloudinary.com/dwdatqojd/image/upload/v1738778483/knnx_ioyjrq.png', // Replace with your network image URL
+                      width: 80, // Adjust size of logo
+                      height: 80,
+                      fit: BoxFit.contain, // Adjust the fit property as needed
+                    ),
                     const SizedBox(height: 20),
                     _buildAnimatedTextField(
                       controller: _emailController,
@@ -262,7 +269,6 @@ class _SignUpPageState extends State<SignUpPage> with SingleTickerProviderStateM
                             color: Colors.white),
                       ),
                     ),
-                   
                   ],
                 ),
               ),

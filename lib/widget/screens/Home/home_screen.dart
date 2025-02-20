@@ -10,6 +10,7 @@ import 'package:autospaze/widget/screens/Home/Details.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:math';
+import 'package:autospaze/widget/services/api_service.dart';
 
 final double _fixedZoomLevel = 16.5;
 final double minzoom = 20;
@@ -27,8 +28,9 @@ class MyApp extends StatelessWidget {
 }
 
 class HomeScreen extends StatefulWidget {
+  
   const HomeScreen({super.key});
-
+ 
   @override
   _HomeScreenState createState() => _HomeScreenState();
 
@@ -57,6 +59,9 @@ double _calculateDistance(LatLng start, LatLng end) {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+
+   final ApiService apiService = ApiService();
+
   
   late Future<List<Map<String, dynamic>>> _futureParkingSpots;
   // Keep track of the current selected tab in the BottomNavigationBar
@@ -108,26 +113,7 @@ class _HomeScreenState extends State<HomeScreen> {
     },
     
   ];
-  Future<List<Map<String, dynamic>>> nearbyParkingSpots() async {
-  try {
-    final response = await http.get(Uri.parse('http://localhost:8080/api/parking-spots'));
-
-    if (response.statusCode == 200) {
-      List<dynamic> data = jsonDecode(response.body);
-      return data.map((spot) => {
-        'id': spot['id'],  // Include the parking spot ID
-        'name': spot['name'],
-        'description': spot['description'],
-        'imageUrl': spot['imageUrl'],
-      }).toList();
-    } else {
-      throw Exception("Failed to load parking spots: ${response.statusCode}");
-    }
-  } catch (e) {
-    print("Error fetching parking spots: $e");
-    throw Exception("Network error: $e");
-  }
-}
+ 
 
 
   @override
@@ -135,6 +121,8 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     _mapController = MapController();
     _checkPermissions();
+    _futureParkingSpots = apiService.getNearbyParkingSpots();
+    
    
    
   }
@@ -628,7 +616,7 @@ Widget buildCardWithImageTextAndButton() {
 
  Widget _buildParkingSpotsList(BuildContext context) {
   return FutureBuilder<List<Map<String, dynamic>>>(
-    future: nearbyParkingSpots(), // Fetch data
+    future: _futureParkingSpots, // Fetch data
     builder: (context, snapshot) {
       if (snapshot.connectionState == ConnectionState.waiting) {
         return Center(child: CircularProgressIndicator());

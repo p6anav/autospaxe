@@ -1,13 +1,15 @@
-import 'dart:convert';
 
+  import 'dart:convert';
 import 'package:autospaze/widget/models/user.dart';
 import 'package:autospaze/widget/providers/user_provider.dart';
 import 'package:autospaze/widget/screens/Home/vehicle.dart';
+import 'package:autospaze/widget/screens/login/test.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'signup_page.dart';
 import 'package:http/http.dart' as http;
+import 'package:autospaze/widget/services/api_service.dart'; // Import the ApiService
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -27,16 +29,14 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
   String? _passwordError;
   bool _isPasswordVisible = false;
 
-  final Map<String, String> _dummyDatabase = {
-    'test@example.com': 'password123',
-  };
+  final ApiService apiService = ApiService(); // Create an instance of ApiService
 
   @override
   void initState() {
     super.initState();
     _animationController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1000), // Slower animation
+      duration: const Duration(milliseconds: 1000),
     );
     _animation = Tween<Offset>(begin: const Offset(0, 1), end: const Offset(0, 0))
         .animate(CurvedAnimation(parent: _animationController, curve: Curves.easeInOut));
@@ -57,20 +57,22 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
   void _navigateToSignUpPage() {
     Navigator.push(context, MaterialPageRoute(builder: (context) => const SignUpPage()));
   }
-Future<void> _loginUser(BuildContext context) async {
+
+  Future<void> _loginUser(BuildContext context) async {
     try {
-      final url = Uri.parse("http://localhost:8080/api/auth/login");
+      final email = _emailController.text.trim();
+      final password = _passwordController.text.trim();
 
-      Map<String, String> loginData = {
-        "email": _emailController.text.trim(),
-        "password": _passwordController.text.trim(),
-      };
+      if (email.isEmpty || password.isEmpty) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text("Please enter both email and password.")),
+          );
+        }
+        return;
+      }
 
-      final response = await http.post(
-        url,
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode(loginData),
-      );
+      final response = await apiService.login(email, password);
 
       print("Response Code: ${response.statusCode}");
       print("Response Body: ${response.body}");
@@ -92,14 +94,23 @@ Future<void> _loginUser(BuildContext context) async {
         if (context.mounted) {
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(builder: (context) => VehicleForm()),
+            MaterialPageRoute(builder: (context) => TestPage()),
           );
         }
       } else {
         print("Login Failed: ${response.body}");
+        String errorMessage = "Login Failed";
+        if (response.statusCode == 401) {
+          errorMessage = "Invalid email or password.";
+        } else if (response.statusCode == 400) {
+          errorMessage = "Bad request. Please check your input.";
+        } else {
+          errorMessage = "An error occurred. Please try again.";
+        }
+
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text("Login Failed: ${response.body}")),
+            SnackBar(content: Text(errorMessage)),
           );
         }
       }
@@ -112,6 +123,7 @@ Future<void> _loginUser(BuildContext context) async {
       }
     }
   }
+
 
 // Function to retrieve the stored user ID
 Future<String?> getUserId() async {

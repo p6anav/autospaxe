@@ -470,7 +470,7 @@ Future<void> holdSlot(String slotId, String userId) async {
     );
   }
 
- void showSlotDetails(BuildContext context, Map<String, dynamic> slot) {
+void showSlotDetails(BuildContext context, Map<String, dynamic> slot) {
   showModalBottomSheet(
     context: context,
     isScrollControlled: true,
@@ -516,9 +516,47 @@ Future<void> holdSlot(String slotId, String userId) async {
             Text('Type: $type'),
             SizedBox(height: 20),
             if (isHeld)
-              Text('Status: Slot is Held', style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold)),
+              Column(
+                children: [
+                  Image.network(
+            'https://res.cloudinary.com/dwdatqojd/image/upload/v1739980797/hold_lifmpt.png', // Replace with your network image URL
+            width: 400, // Adjust size of logo
+            height: 300,
+            fit: BoxFit.contain, // Adjust the fit property as needed
+          ),
+                  SizedBox(height: 8),
+                  Text(
+                    'Slot is held. Booking in progress',
+                    style: TextStyle(
+                      color: Colors.orange,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 20
+                    ),
+                  ),
+                ],
+              ),
             if (!isAvailable)
-              Text('Status: Slot Unavailable', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+              Center(
+                child: Column(
+                  children: [
+                     Image.network(
+                            'https://res.cloudinary.com/dwdatqojd/image/upload/v1739980793/una_dsjrfj.png', // Replace with your network image URL
+                            width: 400, // Adjust size of logo
+                            height: 300,
+                            fit: BoxFit.contain, // Adjust the fit property as needed
+                          ),
+                    SizedBox(height: 8),
+                    Text(
+                      'This slot is currently unavailable ',
+                      style: TextStyle(
+                        color: const Color.fromARGB(255, 15, 148, 181),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 20
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             SizedBox(height: 40),
             if (isAvailable && !isHeld)
               ElevatedButton(
@@ -581,8 +619,9 @@ Future<void> holdSlot(String slotId, String userId) async {
                 onPressed: null,
                 style: ButtonStyle(
                   backgroundColor: MaterialStateProperty.all<Color>(isHeld ? Colors.orange : Colors.grey),
+                   foregroundColor: MaterialStateProperty.all<Color>(isHeld ? const Color.fromARGB(255, 255, 255, 255) : const Color.fromARGB(255, 255, 255, 255)),
                   padding: MaterialStateProperty.all<EdgeInsets>(
-                    EdgeInsets.symmetric(horizontal: 30, vertical: 12),
+                    EdgeInsets.symmetric(horizontal: 60, vertical: 25),
                   ),
                   shape: MaterialStateProperty.all<RoundedRectangleBorder>(
                     RoundedRectangleBorder(
@@ -598,7 +637,7 @@ Future<void> holdSlot(String slotId, String userId) async {
                     ),
                   ),
                 ),
-                child: Text(isHeld ? 'Slot is Held' : 'Slot Unavailable'),
+                child: Text(isHeld ? 'Slot is Hold' : 'Slot Unavailable'),
               ),
           ],
         ),
@@ -836,7 +875,9 @@ class SlotWidget extends StatelessWidget {
     }
 
     Color borderColor = isSelected
-        ? Colors.green
+    ? Colors.green // Green border when selected
+    : slot['hold'] == true
+        ? const Color.fromARGB(255, 171, 171, 171) // Orange border when the slot is held
         : (slot['reserved'] == 'car')
             ? Colors.orangeAccent
             : (slot['reserved'] == 'bike')
@@ -845,19 +886,21 @@ class SlotWidget extends StatelessWidget {
 Color fillColor = isSelected
         ? const Color.fromARGB(255, 40, 237, 10) // Green for selected slot
         : slot['hold'] == true
-            ? const Color.fromARGB(255, 255, 165, 0) // Orange for held slots
+            ?const Color.fromARGB(255, 207, 207, 207) // Orange for held slots
             : slot['availability'] == null || slot['availability'] == false
                 ? const Color.fromARGB(255, 40, 237, 10) // Red for unavailable slots
                 : Colors.white; // White for available slots
 
-
-    Color textColor = isSelected
-        ? Colors.white // White text when selected
+Color textColor = isSelected
+    ? Colors.white // White text when selected
+    : slot['hold'] == true
+        ? const Color.fromARGB(255, 207, 207, 207) // Orange text when the slot is held
         : (slot['reserved'] == 'car')
             ? Colors.orangeAccent
             : (slot['reserved'] == 'bike')
                 ? Colors.blue
                 : const Color.fromARGB(255, 40, 237, 10);
+    
 
     return Positioned(
       left: xPosition,

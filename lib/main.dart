@@ -41,7 +41,7 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
-      home:MainScreen(), // Use MainScreen as the home widget
+      home:LoginPage(), // Use MainScreen as the home widget
     );
   }
 }
