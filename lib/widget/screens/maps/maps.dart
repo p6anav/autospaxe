@@ -50,6 +50,7 @@ class _SvgUpdaterState extends State<SvgUpdater> {
   @override
   void initState() {
     super.initState();
+    startAutoRefresh();
 
     // Show the initial bottom sheet
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -62,14 +63,11 @@ class _SvgUpdaterState extends State<SvgUpdater> {
     });
 
     // Fetch slots from API and load them
-    fetchParkingDetails().then((_) {
-      if (parkingSlots.isNotEmpty) {
-        loadJson(jsonEncode(parkingSlots)); // Pass fetched slots
-      }
-    });
+    refreshData();
 
     // Start progress updates
     startProgressUpdates();
+  progressUpdatesCount++;
   }
 
   void updateParkingSlots() {
@@ -83,10 +81,27 @@ class _SvgUpdaterState extends State<SvgUpdater> {
       }
     });
   }
+int progressUpdatesCount = 0;
+
+  void startAutoRefresh() {
+    const int maxProgressUpdates = 2;
+  const Duration autoRefreshInterval = Duration(seconds: 2);
+  Timer.periodic(autoRefreshInterval, (timer) {
+    refreshData();
+    if (progressUpdatesCount < maxProgressUpdates) {
+      startProgressUpdates();
+      progressUpdatesCount++;
+    }
+    if (progressUpdatesCount >= maxProgressUpdates) {
+      timer.cancel(); // Stop the timer after the maximum number of updates
+    }
+  });
+}
 
   @override
   void dispose() {
     progressTimer?.cancel();
+
     super.dispose();
   }
 
@@ -98,53 +113,83 @@ class _SvgUpdaterState extends State<SvgUpdater> {
     return Duration(hours: hours, minutes: minutes, seconds: seconds);
   }
 
+  Future<void> refreshData() async {
+    try {
+      setState(() {
+        errorMessage = 'Refreshing...'; // Show a refreshing message
+        showErrorImage = false;
+      });
 
-Future<void> printUserId() async {
-  SharedPreferences prefs = await SharedPreferences.getInstance();
-  String? userId = prefs.getString('userId'); // Retrieve the user ID
-  if (userId != null) {
-    print('User ID: $userId');
-  } else {
-    print('User ID not found');
+      // Fetch slots from API and load them
+      await fetchParkingDetails().then((_) async {
+        if (parkingSlots.isNotEmpty) {
+          await loadJson(jsonEncode(parkingSlots)); // Pass fetched slots
+          startProgressUpdates(); // Start the timer after data is loaded
+        }
+      });
+
+      setState(() {
+        errorMessage = ''; // Clear the refreshing message
+      });
+    } catch (e) {
+      setState(() {
+        errorMessage = 'Failed to refresh. Please try again later.';
+        showErrorImage = true; // Show error image
+      });
+      print("Error refreshing data: $e");
+    }
   }
-}
-Future<void> saveUserId(String userId) async {
-  SharedPreferences prefs = await SharedPreferences.getInstance();
-  await prefs.setString('userId', userId);
-}
-Future<void> holdSlot(String slotId, String userId) async {
-  // Define the base URL
-  String baseUrl = 'http://localhost:8080/api/parking-slots/$slotId/hold';
 
-  // Define the query parameters
-  Map<String, String> queryParams = {
-    'userId': userId,
-  };
-
-  // Construct the full URL with query parameters
-  Uri uri = Uri.parse(baseUrl).replace(queryParameters: queryParams);
-
-  // Make the PATCH request
-  final response = await http.patch(
-    uri,
-    headers: {
-      'Content-Type': 'application/json',
-    },
-  );
-
-  // Check the response status code
-  if (response.statusCode == 200) {
-    print('Slot held successfully');
-  } else {
-    print('Failed to hold slot: ${response.body}');
+  Future<void> printUserId() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String? userId = prefs.getString('userId'); // Retrieve the user ID
+    if (userId != null) {
+      print('User ID: $userId');
+    } else {
+      print('User ID not found');
+    }
   }
-}
+
+  Future<void> saveUserId(String userId) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setString('userId', userId);
+  }
+
+  Future<void> holdSlot(String slotId, String userId) async {
+    // Define the base URL
+    String baseUrl = 'http://localhost:8080/api/parking-slots/$slotId/hold';
+
+    // Define the query parameters
+    Map<String, String> queryParams = {
+      'userId': userId,
+    };
+
+    // Construct the full URL with query parameters
+    Uri uri = Uri.parse(baseUrl).replace(queryParameters: queryParams);
+
+    // Make the PATCH request
+    final response = await http.patch(
+      uri,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    );
+
+    // Check the response status code
+    if (response.statusCode == 200) {
+      print('Slot held successfully');
+    } else {
+      print('Failed to hold slot: ${response.body}');
+    }
+  }
+
   // Add this at the top
   Future<void> fetchParkingDetails() async {
     try {
       int parkingId = int.parse(widget.parkingId);
       final response = await http.get(
-        Uri.parse('http://localhost:8080/api/parking-slots/spot/$parkingId'),
+        Uri.parse(
+            'https://backendspringboot2-production.up.railway.app/api/parking-slots/spot/$parkingId'),
       );
 
       if (response.statusCode == 200) {
@@ -172,7 +217,8 @@ Future<void> holdSlot(String slotId, String userId) async {
   Future<Map<String, dynamic>?> fetchParkingSpotById(int parkingId) async {
     try {
       final response = await http.get(
-        Uri.parse('http://localhost:8080/api/parking-slots/spot/$parkingId'),
+        Uri.parse(
+            'https://backendspringboot2-production.up.railway.app/api/parking-slots/spot/$parkingId'),
       );
 
       if (response.statusCode == 200) {
@@ -308,28 +354,31 @@ Future<void> holdSlot(String slotId, String userId) async {
   }
 
   void startProgressUpdates() {
-    progressTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      setState(() {
-        bool allZero = true;
-        slotTimers.forEach((slotId, remainingTime) {
-          if (remainingTime > Duration.zero) {
-            allZero = false;
-            slotTimers[slotId] = remainingTime - const Duration(seconds: 1);
-            Duration initialTime = parseDuration(mockSlots
-                .firstWhere((slot) => slot['id'] == slotId)['remainingTime']);
-            slotProgress[slotId] =
-                slotTimers[slotId]!.inSeconds / initialTime.inSeconds;
-          } else {
-            slotProgress[slotId] = 0;
-          }
-        });
+  // Cancel any existing timer to avoid multiple timers running concurrently
+  progressTimer?.cancel();
 
-        if (allZero) {
-          timer.cancel();
+  progressTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+    setState(() {
+      bool allZero = true;
+      slotTimers.forEach((slotId, remainingTime) {
+        if (remainingTime > Duration.zero) {
+          allZero = false;
+          slotTimers[slotId] = remainingTime - const Duration(seconds: 1);
+          Duration initialTime = parseDuration(mockSlots
+              .firstWhere((slot) => slot['id'] == slotId)['remainingTime']);
+          slotProgress[slotId] =
+              slotTimers[slotId]!.inSeconds / initialTime.inSeconds;
+        } else {
+          slotProgress[slotId] = 0;
         }
       });
+
+      if (allZero) {
+        timer.cancel();
+      }
     });
-  }
+  });
+}
 
   void selectSlot(String slotId) {
     setState(() {
@@ -470,189 +519,192 @@ Future<void> holdSlot(String slotId, String userId) async {
     );
   }
 
-void showSlotDetails(BuildContext context, Map<String, dynamic> slot) {
-  showModalBottomSheet(
-    context: context,
-    isScrollControlled: true,
-    backgroundColor: Colors.white,
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.only(
-        topLeft: Radius.circular(20),
-        topRight: Radius.circular(20),
+  void showSlotDetails(BuildContext context, Map<String, dynamic> slot) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(20),
+          topRight: Radius.circular(20),
+        ),
       ),
-    ),
-    builder: (BuildContext context) {
-      String slotId = slot['id'] ?? 'Unknown';
-      String type = slot['type'] ?? 'Unknown';
-      bool isAvailable = slot['availability'] ?? false;
-      bool isHeld = slot['hold'] ?? false;
+      builder: (BuildContext context) {
+        String slotId = slot['id'] ?? 'Unknown';
+        String type = slot['type'] ?? 'Unknown';
+        bool isAvailable = slot['availability'] ?? false;
+        bool isHeld = slot['hold'] ?? false;
 
-      print('Slot Details: $slotId');
+        print('Slot Details: $slotId');
 
-      return Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Slot Details: $slotId',
-                  style: TextStyle(
-                    fontSize: 23,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.blueAccent,
-                  ),
-                ),
-                IconButton(
-                  icon: Icon(Icons.close, color: Colors.black, size: 30),
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
-              ],
-            ),
-            SizedBox(height: 40),
-            Text('Type: $type'),
-            SizedBox(height: 20),
-            if (isHeld)
-              Column(
+        return Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Image.network(
-            'https://res.cloudinary.com/dwdatqojd/image/upload/v1739980797/hold_lifmpt.png', // Replace with your network image URL
-            width: 400, // Adjust size of logo
-            height: 300,
-            fit: BoxFit.contain, // Adjust the fit property as needed
-          ),
-                  SizedBox(height: 8),
                   Text(
-                    'Slot is held. Booking in progress',
+                    'Slot Details: $slotId',
                     style: TextStyle(
-                      color: Colors.orange,
+                      fontSize: 23,
                       fontWeight: FontWeight.bold,
-                      fontSize: 20
+                      color: Colors.blueAccent,
                     ),
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.close, color: Colors.black, size: 30),
+                    onPressed: () => Navigator.of(context).pop(),
                   ),
                 ],
               ),
-            if (!isAvailable)
-              Center(
-                child: Column(
+              SizedBox(height: 40),
+              Text('Type: $type'),
+              SizedBox(height: 20),
+              if (isHeld)
+                Column(
                   children: [
-                     Image.network(
-                            'https://res.cloudinary.com/dwdatqojd/image/upload/v1739980793/una_dsjrfj.png', // Replace with your network image URL
-                            width: 400, // Adjust size of logo
-                            height: 300,
-                            fit: BoxFit.contain, // Adjust the fit property as needed
-                          ),
+                    Image.network(
+                      'https://res.cloudinary.com/dwdatqojd/image/upload/v1739980797/hold_lifmpt.png', // Replace with your network image URL
+                      width: 400, // Adjust size of logo
+                      height: 300,
+                      fit: BoxFit.contain, // Adjust the fit property as needed
+                    ),
                     SizedBox(height: 8),
                     Text(
-                      'This slot is currently unavailable ',
+                      'Slot is held. Booking in progress',
                       style: TextStyle(
-                        color: const Color.fromARGB(255, 15, 148, 181),
-                        fontWeight: FontWeight.bold,
-                        fontSize: 20
-                      ),
+                          color: Colors.orange,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 20),
                     ),
                   ],
                 ),
-              ),
-            SizedBox(height: 40),
-            if (isAvailable && !isHeld)
-              ElevatedButton(
-                onPressed: () async {
-                  // Get the user ID from UserProvider
-                  final userProvider = Provider.of<UserProvider>(context, listen: false);
-                  final User? user = userProvider.user;
+              if (!isAvailable)
+                Center(
+                  child: Column(
+                    children: [
+                      Image.network(
+                        'https://res.cloudinary.com/dwdatqojd/image/upload/v1739980793/una_dsjrfj.png', // Replace with your network image URL
+                        width: 400, // Adjust size of logo
+                        height: 300,
+                        fit:
+                            BoxFit.contain, // Adjust the fit property as needed
+                      ),
+                      SizedBox(height: 8),
+                      Text(
+                        'This slot is currently unavailable ',
+                        style: TextStyle(
+                            color: const Color.fromARGB(255, 15, 148, 181),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 20),
+                      ),
+                    ],
+                  ),
+                ),
+              SizedBox(height: 40),
+              if (isAvailable && !isHeld)
+                ElevatedButton(
+                  onPressed: () async {
+                    // Get the user ID from UserProvider
+                    final userProvider =
+                        Provider.of<UserProvider>(context, listen: false);
+                    final User? user = userProvider.user;
 
-                  if (user != null) {
-                    // Call the API to hold the slot
-                    final response = await http.patch(
-                      Uri.parse('http://localhost:8080/api/parking-slots/$slotId/hold'),
-                      body: {'userId': user.id},
-                    );
-
-                    if (response.statusCode == 200) {
-                      // Navigate to the next page if the slot is held successfully
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => Bookmarker(),
-                        ),
+                    if (user != null) {
+                      // Call the API to hold the slot
+                      final response = await http.patch(
+                        Uri.parse(
+                            'http://localhost:8080/api/parking-slots/$slotId/hold'),
+                        body: {'userId': user.id},
                       );
+
+                      if (response.statusCode == 200) {
+                        // Navigate to the next page if the slot is held successfully
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => Bookmarker(),
+                          ),
+                        );
+                      } else {
+                        // Show an error message
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Failed to hold the slot')),
+                        );
+                      }
                     } else {
-                      // Show an error message
+                      // Show an error message if user is not logged in
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Failed to hold the slot')),
+                        SnackBar(content: Text('User not logged in')),
                       );
                     }
-                  } else {
-                    // Show an error message if user is not logged in
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('User not logged in')),
-                    );
-                  }
-                },
-                style: ButtonStyle(
-                  backgroundColor: MaterialStateProperty.all<Color>(Colors.green),
-                  padding: MaterialStateProperty.all<EdgeInsets>(
-                    EdgeInsets.symmetric(horizontal: 30, vertical: 20),
-                  ),
-                  shape: MaterialStateProperty.all<RoundedRectangleBorder>(
-                    RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30),
+                  },
+                  style: ButtonStyle(
+                    backgroundColor:
+                        MaterialStateProperty.all<Color>(Colors.green),
+                    padding: MaterialStateProperty.all<EdgeInsets>(
+                      EdgeInsets.symmetric(horizontal: 30, vertical: 20),
+                    ),
+                    shape: MaterialStateProperty.all<RoundedRectangleBorder>(
+                      RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(30),
+                      ),
+                    ),
+                    elevation: MaterialStateProperty.all(5),
+                    textStyle: MaterialStateProperty.all<TextStyle>(
+                      TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
                     ),
                   ),
-                  elevation: MaterialStateProperty.all(5),
-                  textStyle: MaterialStateProperty.all<TextStyle>(
-                    TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
+                  child: Text('Book Slot'),
                 ),
-                child: Text('Book Slot'),
-              ),
-            if (!isAvailable || isHeld)
-              ElevatedButton(
-                onPressed: null,
-                style: ButtonStyle(
-                  backgroundColor: MaterialStateProperty.all<Color>(isHeld ? Colors.orange : Colors.grey),
-                   foregroundColor: MaterialStateProperty.all<Color>(isHeld ? const Color.fromARGB(255, 255, 255, 255) : const Color.fromARGB(255, 255, 255, 255)),
-                  padding: MaterialStateProperty.all<EdgeInsets>(
-                    EdgeInsets.symmetric(horizontal: 60, vertical: 25),
-                  ),
-                  shape: MaterialStateProperty.all<RoundedRectangleBorder>(
-                    RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30),
+              if (!isAvailable || isHeld)
+                ElevatedButton(
+                  onPressed: null,
+                  style: ButtonStyle(
+                    backgroundColor: MaterialStateProperty.all<Color>(
+                        isHeld ? Colors.orange : Colors.grey),
+                    foregroundColor: MaterialStateProperty.all<Color>(isHeld
+                        ? const Color.fromARGB(255, 255, 255, 255)
+                        : const Color.fromARGB(255, 255, 255, 255)),
+                    padding: MaterialStateProperty.all<EdgeInsets>(
+                      EdgeInsets.symmetric(horizontal: 60, vertical: 25),
+                    ),
+                    shape: MaterialStateProperty.all<RoundedRectangleBorder>(
+                      RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(30),
+                      ),
+                    ),
+                    elevation: MaterialStateProperty.all(0),
+                    textStyle: MaterialStateProperty.all<TextStyle>(
+                      TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
                     ),
                   ),
-                  elevation: MaterialStateProperty.all(0),
-                  textStyle: MaterialStateProperty.all<TextStyle>(
-                    TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
+                  child: Text(isHeld ? 'Slot is Hold' : 'Slot Unavailable'),
                 ),
-                child: Text(isHeld ? 'Slot is Hold' : 'Slot Unavailable'),
-              ),
-          ],
-        ),
-      );
-    },
-  );
-}
-Future<String> getUserId() async {
-  SharedPreferences prefs = await SharedPreferences.getInstance();
-  return prefs.getString('userId') ?? 'defaultUserId'; // Replace 'defaultUserId' with a default value if needed
-}
+            ],
+          ),
+        );
+      },
+    );
+  }
 
-
-
-
+  Future<String> getUserId() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    return prefs.getString('userId') ??
+        'defaultUserId'; // Replace 'defaultUserId' with a default value if needed
+  }
 
   Widget getSlotIcon(String? type) {
     switch (type) {
@@ -674,7 +726,6 @@ Future<String> getUserId() async {
           icon: Icon(Icons.arrow_back),
           onPressed: () {
             print("Back button pressed. Parking ID: ${widget.parkingId}");
-            
             Navigator.push(
               context,
               MaterialPageRoute(
@@ -685,6 +736,15 @@ Future<String> getUserId() async {
             );
           },
         ),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.refresh),
+            onPressed: () {
+              // Trigger the refresh action
+              refreshData();
+            },
+          ),
+        ],
       ),
       backgroundColor: Colors.white,
       body: Column(
@@ -787,7 +847,7 @@ Future<String> getUserId() async {
                                     isSelected: isSelected,
                                     onSelect: () {
                                       selectSlot(slotId);
-                                      showSlotDetails(context,slot);
+                                      showSlotDetails(context, slot);
                                     },
                                     getIcon: getSlotIcon,
                                     timerText: formatRemainingTime(
@@ -875,32 +935,34 @@ class SlotWidget extends StatelessWidget {
     }
 
     Color borderColor = isSelected
-    ? Colors.green // Green border when selected
-    : slot['hold'] == true
-        ? const Color.fromARGB(255, 171, 171, 171) // Orange border when the slot is held
-        : (slot['reserved'] == 'car')
-            ? Colors.orangeAccent
-            : (slot['reserved'] == 'bike')
-                ? Colors.blueAccent
-                : const Color.fromARGB(255, 40, 237, 10);
-Color fillColor = isSelected
+        ? Colors.green // Green border when selected
+        : slot['hold'] == true
+            ? const Color.fromARGB(
+                255, 171, 171, 171) // Orange border when the slot is held
+            : (slot['reserved'] == 'car')
+                ? Colors.orangeAccent
+                : (slot['reserved'] == 'bike')
+                    ? Colors.blueAccent
+                    : const Color.fromARGB(255, 40, 237, 10);
+    Color fillColor = isSelected
         ? const Color.fromARGB(255, 40, 237, 10) // Green for selected slot
         : slot['hold'] == true
-            ?const Color.fromARGB(255, 207, 207, 207) // Orange for held slots
+            ? const Color.fromARGB(255, 207, 207, 207) // Orange for held slots
             : slot['availability'] == null || slot['availability'] == false
-                ? const Color.fromARGB(255, 40, 237, 10) // Red for unavailable slots
+                ? const Color.fromARGB(
+                    255, 40, 237, 10) // Red for unavailable slots
                 : Colors.white; // White for available slots
 
-Color textColor = isSelected
-    ? Colors.white // White text when selected
-    : slot['hold'] == true
-        ? const Color.fromARGB(255, 207, 207, 207) // Orange text when the slot is held
-        : (slot['reserved'] == 'car')
-            ? Colors.orangeAccent
-            : (slot['reserved'] == 'bike')
-                ? Colors.blue
-                : const Color.fromARGB(255, 40, 237, 10);
-    
+    Color textColor = isSelected
+        ? Colors.white // White text when selected
+        : slot['hold'] == true
+            ? const Color.fromARGB(
+                255, 207, 207, 207) // Orange text when the slot is held
+            : (slot['reserved'] == 'car')
+                ? Colors.orangeAccent
+                : (slot['reserved'] == 'bike')
+                    ? Colors.blue
+                    : const Color.fromARGB(255, 40, 237, 10);
 
     return Positioned(
       left: xPosition,

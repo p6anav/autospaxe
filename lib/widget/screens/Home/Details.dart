@@ -1,186 +1,198 @@
 import 'package:flutter/material.dart';
-import 'package:autospaze/widget/screens/Home/SearchPage.dart';
-import 'package:latlong2/latlong.dart'; 
-import 'dart:convert';
-import 'dart:math';
 import 'package:http/http.dart' as http;
-final LatLng _currentLocation = LatLng(9.31741, 76.61764);
+import 'dart:convert';
+import 'package:provider/provider.dart';
+import 'package:autospaze/widget/providers/ParkingProvider.dart';
+import 'package:autospaze/widget/screens/bookings/bookings.dart';
 
-class ParkingSpotButton extends StatefulWidget {
-   
-  final Map<String, dynamic> parkingSpot;
-  
-  var onRouteUpdated;
-  
-  var currentLocation;
-  
-  
+class TomTomRoutD extends StatefulWidget {
+  final String parkingId;
 
-  ParkingSpotButton({
-    required this.parkingSpot,
-    required this.onRouteUpdated, 
-    required this.currentLocation
-
-    });
-  
+  const TomTomRoutD({
+    Key? key,
+    required this.parkingId,
+  }) : super(key: key);
 
   @override
-  _ParkingSpotButtonState createState() => _ParkingSpotButtonState();
- 
+  _TomTomRoutingPageState createState() => _TomTomRoutingPageState();
 }
 
-class _ParkingSpotButtonState extends State<ParkingSpotButton> {
-  
- 
-  List<LatLng> _routeCoordinates = [];
-  
-   LatLng? _destination;
-  Color _buttonColor = Colors.green;
+class _TomTomRoutingPageState extends State<TomTomRoutD> {
+  Map<String, dynamic>? parkingSpot;
+  bool isLoading = true;
+  String? errorMessage;
 
-  void _handleButtonClick() {
-    setState(() {
-      _buttonColor = Colors.red;
-    });
-
-    _navigateToDetailsPage(context, widget.parkingSpot);
-  }
-
-Future<void> _calculateRoute(LatLng destination) async {
+  Future<void> fetchParkingDetails() async {
     try {
-      List<LatLng> route = await _getRouteFromTomTom(widget.currentLocation, destination);
+      int parkingId =
+          int.parse(widget.parkingId); // Ensure this is coming from the widget
 
-      // Update route coordinates and callback to HomeScreen
-      widget.onRouteUpdated(route);
-      setState(() {
-        _routeCoordinates = route;
-        _destination = destination;
-      });
+      Map<String, dynamic>? fetchedSpot = await fetchParkingSpotById(parkingId);
+
+      if (fetchedSpot != null) {
+        setState(() {
+          parkingSpot = fetchedSpot;
+          isLoading = false;
+        });
+        print("Fetched Parking Spot: $parkingSpot");
+      } else {
+        setState(() {
+          errorMessage = "No parking spot found with ID: $parkingId";
+          isLoading = false;
+        });
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error calculating route: $e')),
-      );
+      setState(() {
+        errorMessage = "Error fetching parking spot: $e";
+        isLoading = false;
+      });
     }
   }
-  void _navigateToSearchPage(BuildContext context, String parkingName) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => TomTomRoutingPage(
-          currentLocation: _currentLocation,
-          onRouteUpdated: (route) {
-             setState(() {
-        _routeCoordinates = route;
-        _destination = _destination;
-      });
-            // Pass updated route to HomeScreen
-          },
-          searchQuery: parkingName,
-        ),
-      ),
-    );
-  }
 
-  void _navigateToDetailsPage(BuildContext context, Map<String, dynamic> parkingSpot) {
-    String capacity = parkingSpot['capacity']?.toString() ?? 'N/A';
-    String location = parkingSpot['location'] != null
-        ? '${parkingSpot['location'].latitude}, ${parkingSpot['location'].longitude}'
-        : 'Unknown location';
+  Future<Map<String, dynamic>?> fetchParkingSpotById(int parkingId) async {
+    try {
+      final response = await http
+          .get(Uri.parse('https://backendspringboot2-production.up.railway.app/api/parking-spots/$parkingId'));
 
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => ParkingSpotDetailsPage(
-          name: parkingSpot['name'] ?? 'Unknown',
-          description: parkingSpot['description'] ?? 'No description available',
-          imageUrl: parkingSpot['imageUrl'] ?? '',
-          capacity: capacity,
-          location: location,
-        ),
-      ),
-    );
+      if (response.statusCode == 200) {
+        Map<String, dynamic> data = jsonDecode(response.body);
+        return {
+          'id': data['id'],
+          'name': data['name'],
+          'description': data['description'],
+          'imageUrl': data['imageUrl'],
+          'latitude': data['latitude'],
+          'longitude': data['longitude'],
+          'ratePerHour': data['ratePerHour'],
+        };
+      } else {
+        throw Exception("Failed to load parking spot: ${response.statusCode}");
+      }
+    } catch (e) {
+      print("Error fetching parking spot: $e");
+      return null;
+    }
   }
 
   @override
-  Widget build(BuildContext context) {
-    return ElevatedButton(
-      onPressed: _handleButtonClick,
-      style: ElevatedButton.styleFrom(
-        foregroundColor: _buttonColor,
-        padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 10),
-      ),
-      child: const Text('Details'),
-    );
+  void initState() {
+    super.initState();
+    print("Opened TomTomRoutingPage with Parking ID: ${widget.parkingId}");
+    fetchParkingDetails();
   }
-}
-
-class ParkingSpotDetailsPage extends StatelessWidget {
-  final String name;
-  final String description;
-  final String imageUrl;
-  final String capacity;
-  final String location;
-
-  ParkingSpotDetailsPage({
-    required this.name,
-    required this.description,
-    required this.imageUrl,
-    required this.capacity,
-    required this.location,
-  });
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(name),
+      
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back),
+          onPressed: () {
+            Navigator.pop(context); // Navigate back
+          },
+        ),
       ),
       body: Padding(
-        padding: const EdgeInsets.all(16.0),
+           padding: const EdgeInsets.all(16.0), 
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Image.network(imageUrl, errorBuilder: (context, error, stackTrace) => Icon(Icons.image_not_supported)),
-            const SizedBox(height: 16),
-            Text('Description: $description'),
-            const SizedBox(height: 8),
-            Text('Capacity: $capacity'),
-            const SizedBox(height: 8),
-            Text('Location: $location'),
+            // Add the rounded image at the top center
+            Container(
+              height: 300, // Adjust the height as needed
+              child: Align(
+                alignment: Alignment.topCenter,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(16.0), // Rounded corners
+                  child: Image.network(
+                    parkingSpot != null
+                        ? parkingSpot!['imageUrl']
+                        : 'https://via.placeholder.com/150',
+                    height: 250, // Adjust the height as needed
+                        width: double.infinity,// Adjust the height as needed
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) =>
+                        Icon(Icons.image_not_supported, size: 120),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16), // Add some space below the image
+            Expanded(
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    if (isLoading)
+                      CircularProgressIndicator()
+                    else if (errorMessage != null)
+                      Text(errorMessage!)
+                    else
+                      Column(
+                        children: [
+                          Text("Parking Spot Details:"),
+                          Text("Name: ${parkingSpot!['name']}"),
+                          Text("Description: ${parkingSpot!['description']}"),
+                          Text("Rate per Hour: ${parkingSpot!['ratePerHour']}"),
+                        ],
+                      ),
+                    ElevatedButton(
+                      onPressed: () async {
+                        try {
+                          int parkingId = int.parse(
+                              widget.parkingId); // Convert String to int
+                          Map<String, dynamic>? fetchedSpot =
+                              await fetchParkingSpotById(parkingId);
+        
+                          if (fetchedSpot != null) {
+                            // Update the ParkingProvider with the fetched details
+                            Provider.of<ParkingProvider>(context, listen: false)
+                                .setParkingSpot(
+                              id: fetchedSpot['id'].toString(),
+                              name: fetchedSpot['name'],
+                              description: fetchedSpot['description'],
+                              imageUrl: fetchedSpot['imageUrl'],
+                              latitude: fetchedSpot['latitude'],
+                              longitude: fetchedSpot['longitude'],
+                              ratePerHour: fetchedSpot['ratePerHour'],
+                            );
+        
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => BookScreen(),
+                              ),
+                            );
+                          } else {
+                            print("No parking spot found with ID: $parkingId");
+                          }
+                        } catch (e) {
+                          print("Error fetching parking spot: $e");
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color.fromARGB(255, 0, 0, 0),
+                        foregroundColor: Colors.white,
+                        padding:
+                            EdgeInsets.symmetric(vertical: 20, horizontal: 40),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(15),
+                        ),
+                        elevation: 5,
+                      ),
+                      child: Text(
+                        "Proceed to Booking",
+                        style:
+                            TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ],
         ),
       ),
     );
   }
 }
-
-
-// Function to calculate route and call back to HomeScreen
-Future<void> _calculateRoute(LatLng destination, Function(List<LatLng>) onRouteUpdated) async {
-  try {
-    List<LatLng> route = await _getRouteFromTomTom(_currentLocation, destination);
-
-    // Update the route and callback to HomeScreen
-    onRouteUpdated(route);
-  } catch (e) {
-    print('Error calculating route: $e');
-  }
-}
-Future<List<LatLng>> _getRouteFromTomTom(LatLng start, LatLng end) async {
-    String apiKey = '8CKwch3uCDAuLbcrffLiAx8IdhU9bGKS';
-    String url = 'https://api.tomtom.com/routing/1/calculateRoute/'
-        '${start.latitude},${start.longitude}:${end.latitude},${end.longitude}/json?key=$apiKey';
-
-    final response = await http.get(Uri.parse(url));
-
-    if (response.statusCode == 200) {
-      var data = json.decode(response.body);
-      List<dynamic> geometry = data['routes'][0]['legs'][0]['points'];
-      List<LatLng> routeCoordinates = geometry.map((point) {
-        return LatLng(point['latitude'], point['longitude']);
-      }).toList();
-
-      return routeCoordinates;
-    } else {
-      throw Exception('Failed to load route');
-    }
-  }

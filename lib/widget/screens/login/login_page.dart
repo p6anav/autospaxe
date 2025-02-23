@@ -1,5 +1,6 @@
 
   import 'dart:convert';
+import 'package:autospaze/widget/main_screen.dart';
 import 'package:autospaze/widget/models/user.dart';
 import 'package:autospaze/widget/providers/user_provider.dart';
 import 'package:autospaze/widget/screens/Home/vehicle.dart';
@@ -94,7 +95,7 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
         if (context.mounted) {
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(builder: (context) => TestPage()),
+            MaterialPageRoute(builder: (context) => MainScreen()),
           );
         }
       } else {

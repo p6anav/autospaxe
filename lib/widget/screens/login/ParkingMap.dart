@@ -1,3 +1,5 @@
+import 'package:autospaze/widget/providers/ParkingProvider.dart';
+import 'package:autospaze/widget/screens/bookings/bookings.dart';
 import 'package:autospaze/widget/screens/maps/datatime.dart';
 import 'package:autospaze/widget/screens/maps/maps.dart';
 import 'package:flutter/material.dart';
@@ -7,6 +9,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:autospaze/widget/screens/Home/home_screen.dart';
 import 'package:autospaze/widget/main_screen.dart';
+import 'package:provider/provider.dart';
 
 class TomTomRoutint extends StatefulWidget {
   final LatLng currentLocation;
@@ -23,10 +26,10 @@ class TomTomRoutint extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  _TomTomRoutingPageState createState() => _TomTomRoutingPageState();
+  _TomTomRoutintState createState() => _TomTomRoutintState();
 }
 
-class _TomTomRoutingPageState extends State<TomTomRoutint> {
+class _TomTomRoutintState extends State<TomTomRoutint> {
   late MapController _mapController;
   late TextEditingController _searchController;
   List<LatLng> _routeCoordinates = [];
@@ -85,7 +88,7 @@ class _TomTomRoutingPageState extends State<TomTomRoutint> {
   Future<Map<String, dynamic>?> fetchParkingSpotById(int parkingId) async {
     try {
       final response = await http
-          .get(Uri.parse('http://localhost:8080/api/parking-spots/$parkingId'));
+          .get(Uri.parse('https://backendspringboot2-production.up.railway.app/api/parking-spots/$parkingId'));
 
       if (response.statusCode == 200) {
         Map<String, dynamic> data = jsonDecode(response.body);
@@ -96,6 +99,7 @@ class _TomTomRoutingPageState extends State<TomTomRoutint> {
           'imageUrl': data['imageUrl'],
           'latitude': data['latitude'],
           'longitude': data['longitude'],
+           'ratePerHour': data['ratePerHour'], 
         };
       } else {
         throw Exception("Failed to load parking spot: ${response.statusCode}");
@@ -114,6 +118,17 @@ class _TomTomRoutingPageState extends State<TomTomRoutint> {
     _mapController = MapController();
     _searchController = TextEditingController();
     _searchController = TextEditingController(text: widget.searchQuery);
+
+    print(
+        "Opened TomTomRoutint with Parking ID: ${widget.parkingId}, Name: ${widget.searchQuery}");
+    _mapController = MapController();
+    _searchController = TextEditingController(text: widget.searchQuery);
+
+    
+
+    // Fetch parking details from the provider
+   
+  
   }
 
   // Function to calculate the route and update the map with polyline
@@ -218,18 +233,23 @@ class _TomTomRoutingPageState extends State<TomTomRoutint> {
             right: 20,
             child: ElevatedButton(
               onPressed: () async {
-                try {
+               try {
       int parkingId = int.parse(widget.parkingId); // Convert String to int
-      Map<String, dynamic>? parkingSpot = await fetchParkingSpotById(parkingId); // Fetch details
+      Map<String, dynamic>? fetchedSpot = await fetchParkingSpotById(parkingId);
 
-      if (parkingSpot != null) {
-        print("Fetched Parkitestng Spot:");
-        print("ID: ${parkingSpot['id']}, Name: ${parkingSpot['name']}");
-        print("Latitude: ${parkingSpot['latitude']}, Longitude: ${parkingSpot['longitude']}");
-        print("Description: ${parkingSpot['description']}");
-        print("Image URL: ${parkingSpot['imageUrl']}");
+      if (fetchedSpot != null) {
+      // Update the ParkingProvider with the fetched details
+      Provider.of<ParkingProvider>(context, listen: false).setParkingSpot(
+        id: fetchedSpot['id'].toString(),
+        name: fetchedSpot['name'],
+        description: fetchedSpot['description'],
+        imageUrl: fetchedSpot['imageUrl'],
+        latitude: fetchedSpot['latitude'],
+        longitude: fetchedSpot['longitude'],
+        ratePerHour: fetchedSpot['ratePerHour'], // Include ratePerHour
+      );
 
-        Navigator.push(
+       Navigator.push(
   context,
   MaterialPageRoute(
     builder: (context) =>DateTimeRangePickerScreen(
@@ -237,14 +257,13 @@ class _TomTomRoutingPageState extends State<TomTomRoutint> {
     ),
   ),
 );
-
       } else {
         print("No parking spot found with ID: $parkingId");
       }
-    }  catch (e) {
-                  print("Error fetching parking spots: $e");
-                }
-              },
+    } catch (e) {
+      print("Error fetching parking spot: $e");
+    }
+  },
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color.fromARGB(255, 0, 0, 0),
                 foregroundColor: Colors.white,

@@ -1,8 +1,12 @@
+import 'package:autospaze/widget/models/ParkingSpot.dart';
+import 'package:autospaze/widget/providers/ParkingProvider.dart';
+import 'package:autospaze/widget/screens/bookings/bookings.dart';
 import 'package:autospaze/widget/screens/login/ParkingMap.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:location/location.dart';
+import 'package:provider/provider.dart';
 import 'SearchPage.dart';
 import 'package:autospaze/widget/screens/bottomnav.dart';
 import 'package:autospaze/widget/main_screen.dart';
@@ -11,6 +15,8 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:math';
 import 'package:autospaze/widget/services/api_service.dart';
+import 'package:autospaze/widget/models/ParkingSpot.dart';
+import 'package:autospaze/widget/providers/ParkingProvider.dart';
 
 final double _fixedZoomLevel = 16.5;
 final double minzoom = 20;
@@ -252,6 +258,30 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   
+  Future<Map<String, dynamic>?> fetchParkingSpotById(int parkingId) async {
+    try {
+      final response = await http
+          .get(Uri.parse('https://backendspringboot2-production.up.railway.app/api/parking-spots/$parkingId'));
+
+      if (response.statusCode == 200) {
+        Map<String, dynamic> data = jsonDecode(response.body);
+        return {
+          'id': data['id'],
+          'name': data['name'],
+          'description': data['description'],
+          'imageUrl': data['imageUrl'],
+          'latitude': data['latitude'],
+          'longitude': data['longitude'],
+           'ratePerHour': data['ratePerHour'], 
+        };
+      } else {
+        throw Exception("Failed to load parking spot: ${response.statusCode}");
+      }
+    } catch (e) {
+      print("Error fetching parking spot: $e");
+      return null;
+    }
+  }
 
   void _updateMarkerVisibility(double zoomLevel) {
     setState(() {
@@ -569,7 +599,8 @@ Widget buildCardWithImageTextAndButton() {
     );
   }
 
- void _navigateToRoutePage(BuildContext context, String parkingId, String parkingName) {
+ 
+void _navigateToRoutePage(BuildContext context, String parkingId, String parkingName) {
   print("Navigating to Parking ID: $parkingId, Name: $parkingName"); 
   Navigator.push(
     context,
@@ -585,27 +616,16 @@ Widget buildCardWithImageTextAndButton() {
     ),
   );
 }
-
-
- 
-
-
-  void _navigateToDetailsPage(BuildContext context, Map<String, dynamic> parkingSpot) {
-  // Set default values in case the fields are missing
-  String capacity = parkingSpot['capacity'] ?? 'N/A';
-  String location = parkingSpot['location'] ?? 'Unknown location';
-  
-  // Proceed to navigate if data is valid
+void _navigateToD(BuildContext context, String parkingId, String parkingName) {
+  print("Navigating to Parking ID: $parkingId, Name: $parkingName"); 
   Navigator.push(
     context,
     MaterialPageRoute(
-      builder: (context) => ParkingSpotDetailsPage(
-        
-        name: parkingSpot['name']!,
-        description: parkingSpot['description']!,
-        imageUrl: parkingSpot['imageUrl']!,
-        capacity: capacity,  // Use the fallback value if needed
-        location: location,   // Use the fallback value if needed
+      builder: (context) => TomTomRoutD(
+      
+    
+      
+        parkingId: parkingId, // Pass parkingId to the next screen
       ),
     ),
   );
@@ -613,8 +633,10 @@ Widget buildCardWithImageTextAndButton() {
 
 
 
+ 
 
- Widget _buildParkingSpotsList(BuildContext context) {
+  
+Widget _buildParkingSpotsList(BuildContext context) {
   return FutureBuilder<List<Map<String, dynamic>>>(
     future: _futureParkingSpots, // Fetch data
     builder: (context, snapshot) {
@@ -674,8 +696,6 @@ Widget buildCardWithImageTextAndButton() {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-
-                         
                         const SizedBox(height: 4),
                         Text(
                           parkingSpot['name']!,
@@ -684,7 +704,6 @@ Widget buildCardWithImageTextAndButton() {
                             fontWeight: FontWeight.bold,
                             color: Colors.white,
                           ),
-                          
                         ),
                         const SizedBox(height: 4),
                         Text(
@@ -701,15 +720,13 @@ Widget buildCardWithImageTextAndButton() {
                           mainAxisAlignment: MainAxisAlignment.start,
                           children: [
                             ElevatedButton(
-                             onPressed: () {
+                             onPressed: () async  {
   _navigateToRoutePage(
     context,
     parkingSpot['id'].toString(),   // Ensure parking ID is a String
     parkingSpot['name']!,
   );
-},
-
-                              style: ElevatedButton.styleFrom(
+},               style: ElevatedButton.styleFrom(
                                 foregroundColor: Colors.blue,
                                 padding: EdgeInsets.symmetric(
                                   horizontal: screenWidth < 600 ? 20 : 30, // Adjust padding
@@ -721,8 +738,11 @@ Widget buildCardWithImageTextAndButton() {
                             const SizedBox(width: 10),
                             ElevatedButton(
                               onPressed: () {
-                               
-                                _navigateToDetailsPage(context, parkingSpot);
+                                _navigateToD(
+                                  context,
+                                  parkingSpot['id'].toString(), // Ensure parking ID is a String
+                                  parkingSpot['name']!,
+                                );
                               },
                               style: ElevatedButton.styleFrom(
                                 foregroundColor: Colors.green,
@@ -747,7 +767,6 @@ Widget buildCardWithImageTextAndButton() {
     },
   );
 }
-
 }
 
 extension on MapController {
