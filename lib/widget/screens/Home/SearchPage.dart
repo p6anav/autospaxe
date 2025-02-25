@@ -1,3 +1,5 @@
+import 'package:autospaze/widget/providers/ParkingProvider.dart';
+import 'package:autospaze/widget/screens/maps/datatime.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -5,19 +7,20 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:autospaze/widget/screens/Home/home_screen.dart';
 import 'package:autospaze/widget/main_screen.dart';
+import 'package:provider/provider.dart';
 
 class TomTomRoutingPage extends StatefulWidget {
   final LatLng currentLocation;
   final Function(List<LatLng>) onRouteUpdated;
-   final String searchQuery; 
-   
+  final String searchQuery;
+  final String parkingId;
 
   const TomTomRoutingPage({
     Key? key,
-    
     required this.currentLocation,
-    required this.onRouteUpdated, 
+    required this.onRouteUpdated,
     required this.searchQuery,
+    required this.parkingId,
   }) : super(key: key);
 
   @override
@@ -29,6 +32,10 @@ class _TomTomRoutingPageState extends State<TomTomRoutingPage> {
   late TextEditingController _searchController;
   List<LatLng> _routeCoordinates = [];
   LatLng? _destination;
+   Map<String, dynamic>? parkingSpot;
+  
+  bool isLoading = true;
+  String? errorMessage;
 
   // List of parking locations
   List<Map<String, dynamic>> _parkingLocations = [
@@ -47,12 +54,12 @@ class _TomTomRoutingPageState extends State<TomTomRoutingPage> {
       "location": LatLng(9.4050, 76.5700),
       "isVisible": true,
     },
-     {
+    {
       "name": "Airth Parking Zone",
       "location": LatLng(9.6001, 76.3805),
       "isVisible": true,
     },
-     {
+    {
       "name": "Auto Spaxe chengannur",
       "location": LatLng(9.3155, 76.6158),
       "isVisible": true,
@@ -62,9 +69,10 @@ class _TomTomRoutingPageState extends State<TomTomRoutingPage> {
   @override
   void initState() {
     super.initState();
+    print("Opened TomTomRoutingPage with Parking ID: ${widget.parkingId}, Name: ${widget.searchQuery}");
     _mapController = MapController();
-    _searchController = TextEditingController();
     _searchController = TextEditingController(text: widget.searchQuery);
+    fetchParkingDetails();
   }
 
   // Function to calculate the route and update the map with polyline
@@ -84,12 +92,62 @@ class _TomTomRoutingPageState extends State<TomTomRoutingPage> {
       );
     }
   }
+Future<void> fetchParkingDetails() async {
+    try {
+      int parkingId =
+          int.parse(widget.parkingId); // Ensure this is coming from the widget
+
+      Map<String, dynamic>? fetchedSpot = await fetchParkingSpotById(parkingId);
+
+      if (fetchedSpot != null) {
+        setState(() {
+          parkingSpot = fetchedSpot;
+          var isLoading = false;
+        });
+        print("Fetched Parking Spot: $parkingSpot");
+      } else {
+        setState(() {
+          errorMessage = "No parking spot found with ID: $parkingId";
+          isLoading = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        errorMessage = "Error fetching parking spot: $e";
+        isLoading = false;
+      });
+    }
+  }
+
+  Future<Map<String, dynamic>?> fetchParkingSpotById(int parkingId) async {
+    try {
+      final response = await http
+          .get(Uri.parse('https://backendspringboot2-production.up.railway.app/api/parking-spots/$parkingId'));
+
+      if (response.statusCode == 200) {
+        Map<String, dynamic> data = jsonDecode(response.body);
+        return {
+          'id': data['id'],
+          'name': data['name'],
+          'description': data['description'],
+          'imageUrl': data['imageUrl'],
+          'latitude': data['latitude'],
+          'longitude': data['longitude'],
+          'ratePerHour': data['ratePerHour'],
+        };
+      } else {
+        throw Exception("Failed to load parking spot: ${response.statusCode}");
+      }
+    } catch (e) {
+      print("Error fetching parking spot: $e");
+      return null;
+    }
+  }
 
   // Function to fetch route from TomTom API
   Future<List<LatLng>> _getRouteFromTomTom(LatLng start, LatLng end) async {
     String apiKey = '8CKwch3uCDAuLbcrffLiAx8IdhU9bGKS';
-    String url = 'https://api.tomtom.com/routing/1/calculateRoute/'
-        '${start.latitude},${start.longitude}:${end.latitude},${end.longitude}/json?key=$apiKey';
+    String url = 'https://api.tomtom.com/routing/1/calculateRoute/${start.latitude},${start.longitude}:${end.latitude},${end.longitude}/json?key=$apiKey';
 
     final response = await http.get(Uri.parse(url));
 
@@ -113,7 +171,6 @@ class _TomTomRoutingPageState extends State<TomTomRoutingPage> {
     // Find parking location by name
     var matchedParking = _parkingLocations.firstWhere(
       (parking) => parking['name'].toLowerCase() == input.toLowerCase(),
-      
     );
 
     if (matchedParking != null) {
@@ -144,22 +201,24 @@ class _TomTomRoutingPageState extends State<TomTomRoutingPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-     
+      
       appBar: AppBar(
-       
+        backgroundColor: Colors.green.shade50,
         leading: IconButton(
           icon: Icon(Icons.arrow_back),
           onPressed: () {
             // Navigate back to the home page
             Navigator.pop(context);
-
           },
         ),
       ),
       body: Column(
         children: [
           _buildSearchBar(),
-          _buildMap(),
+          Expanded(
+            child: _buildMap(),
+          ),
+          _buildBottomButton(),
         ],
       ),
     );
@@ -167,94 +226,142 @@ class _TomTomRoutingPageState extends State<TomTomRoutingPage> {
 
   // Build the search bar to input a destination
   Widget _buildSearchBar() {
-  return Padding(
-    padding: const EdgeInsets.all(12.0),
-    child: Row(
-      children: [
-        Expanded(
-        child: TextField(
-  controller: _searchController,
-  decoration: InputDecoration(
-    hintText: 'Enter parking area name...',
-    border: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(12), // Rounded corners
-    ),
-    filled: true, // Adds background color to the TextField
- // Set background color to black
-    hintStyle: TextStyle(color: const Color.fromARGB(255, 156, 90, 90)), // Set hint text color to white for contrast
-    contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-    suffixIcon: IconButton(
-      icon: const Icon(Icons.search, color: Color.fromARGB(255, 0, 0, 0)), // Set icon color to white
-      onPressed: _onSearchDestination, // Search action on click
-    ),
-  ),
-  onSubmitted: (value) => _onSearchDestination(), // Trigger search on 'Enter'
-),
-
-        ),
-      ],
-    ),
-  );
-}
-
-
-  // Build the map for displaying the route and parking markers
-  Widget _buildMap() {
-    return Expanded(
-      child: FlutterMap(
-        mapController: _mapController,
-        options: MapOptions(
-          initialCenter: widget.currentLocation,
-          initialZoom: 15,
-          onPositionChanged: (position, hasGesture) {
-            if (position != null) {
-              _updateMarkerVisibility(position.zoom ?? 15);
-            }
-          },
-        ),
+    return Padding(
+      padding: const EdgeInsets.all(12.0),
+      child: Row(
         children: [
-          TileLayer(
-            urlTemplate:
-                'https://api.tomtom.com/map/1/tile/basic/main/{z}/{x}/{y}.png?key=8CKwch3uCDAuLbcrffLiAx8IdhU9bGKS',
-            userAgentPackageName: 'com.example.app',
-          ),
-          PolylineLayer(
-            polylines: [
-              Polyline(
-                points: _routeCoordinates,
-                strokeWidth: 6,
-                color: const Color.fromARGB(255, 247, 2, 2),
+          Expanded(
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                hintText: 'Enter parking area name...',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12), // Rounded corners
+                ),
+                filled: true, // Adds background color to the TextField
+                hintStyle: TextStyle(color: const Color.fromARGB(255, 156, 90, 90)), // Set hint text color to white for contrast
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                suffixIcon: IconButton(
+                  icon: const Icon(Icons.search, color: Color.fromARGB(255, 0, 0, 0)), // Set icon color to white
+                  onPressed: _onSearchDestination, // Search action on click
+                ),
               ),
-            ],
-          ),
-          MarkerLayer(
-            markers: _parkingLocations.map((parking) {
-              return Marker(
-                point: parking["location"],
-                width: 150,
-                height: parking["isVisible"] == true ? 80 : 0,
-                child: parking["isVisible"] == true
-                    ? Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.location_on, color: Colors.red, size: 40),
-                          const SizedBox(height: 5),
-                          Text(
-                            parking["name"],
-                            style: const TextStyle(
-                              color: Color.fromARGB(255, 117, 35, 35),
-                              fontWeight: FontWeight.bold,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      )
-                    : const SizedBox.shrink(),
-              );
-            }).toList(),
+              onSubmitted: (value) => _onSearchDestination(), // Trigger search on 'Enter'
+            ),
           ),
         ],
       ),
+    );
+  }
+
+  // Build the map for displaying the route and parking markers
+  Widget _buildMap() {
+    return FlutterMap(
+      mapController: _mapController,
+      options: MapOptions(
+        initialCenter: widget.currentLocation,
+        initialZoom: 15,
+        onPositionChanged: (position, hasGesture) {
+          if (position != null) {
+            _updateMarkerVisibility(position.zoom ?? 15);
+          }
+        },
+      ),
+      children: [
+        TileLayer(
+          urlTemplate: 'https://api.tomtom.com/map/1/tile/basic/main/{z}/{x}/{y}.png?key=8CKwch3uCDAuLbcrffLiAx8IdhU9bGKS',
+          userAgentPackageName: 'com.example.app',
+        ),
+        PolylineLayer(
+          polylines: [
+            Polyline(
+              points: _routeCoordinates,
+              strokeWidth: 6,
+              color: const Color.fromARGB(255, 247, 2, 2),
+            ),
+          ],
+        ),
+        MarkerLayer(
+          markers: _parkingLocations.map((parking) {
+            return Marker(
+              point: parking["location"],
+              width: 150,
+              height: parking["isVisible"] == true ? 80 : 0,
+              child: parking["isVisible"] == true
+                  ? Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.location_on, color: Colors.red, size: 40),
+                        const SizedBox(height: 5),
+                        Text(
+                          parking["name"],
+                          style: const TextStyle(
+                            color: Color.fromARGB(255, 117, 35, 35),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    )
+                  : const SizedBox.shrink(),
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+
+  // Build the bottom button
+  Widget _buildBottomButton() {
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: ElevatedButton(
+              onPressed: () async {
+                try {
+                  int parkingId = int.parse(widget.parkingId); // Convert String to int
+                  Map<String, dynamic>? fetchedSpot = await fetchParkingSpotById(parkingId);
+
+                  if (fetchedSpot != null) {
+                    // Update the ParkingProvider with the fetched details
+                    Provider.of<ParkingProvider>(context, listen: false).setParkingSpot(
+                      id: fetchedSpot['id'].toString(),
+                      name: fetchedSpot['name'],
+                      description: fetchedSpot['description'],
+                      imageUrl: fetchedSpot['imageUrl'],
+                      latitude: fetchedSpot['latitude'],
+                      longitude: fetchedSpot['longitude'],
+                      ratePerHour: fetchedSpot['ratePerHour'], // Include ratePerHour
+                    );
+
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => DateTimeRangePickerScreen(
+                          parkingId: widget.parkingId,
+                        ),
+                      ),
+                    );
+                  } else {
+                    print("No parking spot found with ID: $parkingId");
+                  }
+                } catch (e) {
+                  print("Error fetching parking spot: $e");
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color.fromARGB(255, 0, 0, 0),
+                foregroundColor: Colors.white,
+                padding: EdgeInsets.symmetric(vertical: 20, horizontal: 40),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                elevation: 5,
+              ),
+              child: Text(
+                "ParkingMap",
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+            ),
     );
   }
 }

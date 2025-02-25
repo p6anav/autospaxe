@@ -115,7 +115,7 @@ class _SignUpPageState extends State<SignUpPage> with SingleTickerProviderStateM
       await prefs.setInt('userId', userId);
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Signup successful! User ID: $userId")),
+        SnackBar(content: Text("Signup successful! User ID")),
       );
 
       // Navigate to another screen after signup (Example: LoginPage)

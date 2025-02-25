@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:autospaze/widget/models/user.dart';
 import 'package:autospaze/widget/providers/user_provider.dart';
+import 'package:autospaze/widget/screens/bookings/bookings.dart';
 import 'package:autospaze/widget/screens/bookmarks/app.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
@@ -157,7 +158,7 @@ int progressUpdatesCount = 0;
 
   Future<void> holdSlot(String slotId, String userId) async {
     // Define the base URL
-    String baseUrl = 'http://localhost:8080/api/parking-slots/$slotId/hold';
+    String baseUrl = 'https://backendspringboot2-production.up.railway.app/api/parking-slots/$slotId/hold';
 
     // Define the query parameters
     Map<String, String> queryParams = {
@@ -618,7 +619,7 @@ int progressUpdatesCount = 0;
                       // Call the API to hold the slot
                       final response = await http.patch(
                         Uri.parse(
-                            'http://localhost:8080/api/parking-slots/$slotId/hold'),
+                            'https://backendspringboot2-production.up.railway.app/api/parking-slots/$slotId/hold'),
                         body: {'userId': user.id},
                       );
 
@@ -627,7 +628,7 @@ int progressUpdatesCount = 0;
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => Bookmarker(),
+                            builder: (context) => BookScreen(),
                           ),
                         );
                       } else {

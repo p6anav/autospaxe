@@ -21,6 +21,7 @@ class _BottomnavState extends State<Bottomnav> {
   // List of screens corresponding to bottom navigation items
   final List<Widget> _screens = [
     HomeScreen(),
+    
    NextPage (searchQuery: '', parkingId: '',),  // Maps screen with DateTimePicker
     Bookmarker(), // Bookmarks screen
     Profile(),    // Profile screen

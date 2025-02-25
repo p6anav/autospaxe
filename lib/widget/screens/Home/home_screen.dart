@@ -175,7 +175,7 @@ class _HomeScreenState extends State<HomeScreen> {
           builder: (context) => TomTomRoutingPage(
             
             currentLocation: _currentLocation!,
-            onRouteUpdated: _updateRoute, searchQuery: '',  
+            onRouteUpdated: _updateRoute, searchQuery: '', parkingId: '',  
             
           ),
         
@@ -605,7 +605,7 @@ void _navigateToRoutePage(BuildContext context, String parkingId, String parking
   Navigator.push(
     context,
     MaterialPageRoute(
-      builder: (context) => TomTomRoutint(
+      builder: (context) => TomTomRoutingPage(
         currentLocation: _currentLocation!,
         onRouteUpdated: (route) {
           // Handle route update here if needed
@@ -616,6 +616,9 @@ void _navigateToRoutePage(BuildContext context, String parkingId, String parking
     ),
   );
 }
+
+
+
 void _navigateToD(BuildContext context, String parkingId, String parkingName) {
   print("Navigating to Parking ID: $parkingId, Name: $parkingName"); 
   Navigator.push(
