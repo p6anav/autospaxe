@@ -15,6 +15,7 @@ import 'package:provider/provider.dart';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
+
 class SvgUpdater extends StatefulWidget {
   final String searchQuery;
   final String parkingId;
@@ -39,6 +40,7 @@ class _SvgUpdaterState extends State<SvgUpdater> {
   List<Map<String, dynamic>> mockSlots = [];
   Map<String, double> slotProgress = {};
   Map<String, Duration> slotTimers = {};
+  Map<String, Duration> slotInitialTimes = {};
   String? selectedSlotId;
   Timer? progressTimer;
   Offset dragOffset = Offset(0, 0);
@@ -62,7 +64,7 @@ class _SvgUpdaterState extends State<SvgUpdater> {
         updateParkingSlots();
       });
     });
-
+  loadProgress();
     // Fetch slots from API and load them
     refreshData();
 
@@ -70,6 +72,10 @@ class _SvgUpdaterState extends State<SvgUpdater> {
     startProgressUpdates();
   progressUpdatesCount++;
   }
+  void main() async {
+  // Update the remaining time for slot 79 to 1 hour and 30 minutes for user 2
+  await updateSlotRemainingTime('89', '01:30:00', '2');
+}
 
   void updateParkingSlots() {
     setState(() {
@@ -158,7 +164,7 @@ int progressUpdatesCount = 0;
 
   Future<void> holdSlot(String slotId, String userId) async {
     // Define the base URL
-    String baseUrl = 'https://backendspringboot2-production.up.railway.app/api/parking-slots/$slotId/hold';
+    String baseUrl = 'http://localhost:8080/api/parking-slots/$slotId/hold';
 
     // Define the query parameters
     Map<String, String> queryParams = {
@@ -190,7 +196,7 @@ int progressUpdatesCount = 0;
       int parkingId = int.parse(widget.parkingId);
       final response = await http.get(
         Uri.parse(
-            'https://backendspringboot2-production.up.railway.app/api/parking-slots/spot/$parkingId'),
+            'http://localhost:8080/api/parking-slots/spot/$parkingId'),
       );
 
       if (response.statusCode == 200) {
@@ -215,133 +221,159 @@ int progressUpdatesCount = 0;
     }
   }
 
+
   Future<Map<String, dynamic>?> fetchParkingSpotById(int parkingId) async {
     try {
       final response = await http.get(
         Uri.parse(
-            'https://backendspringboot2-production.up.railway.app/api/parking-slots/spot/$parkingId'),
+            'http://localhost:8080/api/parking-slots/spot/$parkingId'),
       );
+if (response.statusCode == 200) {
+    List<dynamic> data = jsonDecode(response.body);
+    setState(() {
+      mockSlots = data.map((slot) => Map<String, dynamic>.from(slot)).toList();
+      for (var slot in mockSlots) {
+        String slotId = slot['id'] ?? 'unknown';
+        DateTime? endTime = slot['exit_time'] != null ? DateTime.parse(slot['exit_time']) : null;
+        DateTime now = DateTime.now();
 
-      if (response.statusCode == 200) {
-        var decodedData = jsonDecode(response.body);
-
-        // Check if the response is a List or a Map
-        if (decodedData is List && decodedData.isNotEmpty) {
-          // Use the first item from the list
-          Map<String, dynamic> data = decodedData.first;
-
-          return {
-            'id': data['id'],
-            'name': data['parkingSpot']['name'],
-            'description': data['parkingSpot']['description'],
-            'imageUrl': data['parkingSpot']['imageUrl'],
-            'latitude': data['parkingSpot']['latitude'],
-            'longitude': data['parkingSpot']['longitude'],
-            'x': data['x'],
-            'y': data['y'],
-          };
-        } else if (decodedData is Map<String, dynamic>) {
-          // If it's already a Map
-          return {
-            'id': decodedData['id'],
-            'name': decodedData['parkingSpot']['name'],
-            'description': decodedData['parkingSpot']['description'],
-            'imageUrl': decodedData['parkingSpot']['imageUrl'],
-            'latitude': decodedData['latitude'],
-            'longitude': decodedData['longitude'],
-            'x': decodedData['x'],
-            'y': decodedData['y'],
-          };
-        } else {
-          print("Unexpected response format: $decodedData");
-          return null;
+        Duration remainingTime = endTime != null ? endTime.difference(now) : Duration.zero;
+        if (remainingTime < Duration.zero) {
+          remainingTime = Duration.zero;
         }
-      } else {
-        print(
-            "Failed to load parking spot. Status code: ${response.statusCode}");
-        return null;
+
+        slotTimers[slotId] = remainingTime;
+        print('Slot ID: $slotId, Remaining Time: $remainingTime');
       }
+    });
+  } 
     } catch (e) {
       print("Error fetching parking spot by ID: $e");
       return null;
     }
   }
+Future<void> updateSlotRemainingTime(String slotId, String remainingTime, String userId) async {
+  try {
+    final response = await http.patch(
+      Uri.parse('http://localhost:8080/api/parking-slots/$slotId/remaining-time'),
+      body: {
+        'remainingTime': remainingTime,
+        'userId': userId,
+      },
+    );
 
-  Future<void> loadJson(String jsonEncode) async {
-    try {
-      List<dynamic> jsonResponse = jsonDecode(jsonEncode); // Use passed JSON
-      setState(() {
-        double initialX = 2;
-        double initialY = 50;
-        double xIncrement = 159;
-        double extraRangeGap = 80;
-        int slotsPerRow = 18;
-        double x = initialX;
-        double y = initialY;
-        String currentRange = '';
+    if (response.statusCode == 200) {
+      // Successfully updated remaining time
+      print('Remaining time updated for slot $slotId');
+    } else {
+      print('Failed to update remaining time. Status code: ${response.statusCode}');
+    }
+  } catch (e) {
+    print('Error updating remaining time: $e');
+  }
+}
+  
+Future<void> loadJson(String jsonEncode) async {
+  try {
+    List<dynamic> jsonResponse = jsonDecode(jsonEncode); // Use passed JSON
+    setState(() {
+      double initialX = 2;
+      double initialY = 50;
+      double xIncrement = 159;
+      double extraRangeGap = 80;
+      int slotsPerRow = 18;
+      double x = initialX;
+      double y = initialY;
+      String currentRange = '';
 
-        mockSlots = [];
-        List<Map<String, dynamic>> currentRangeSlots = [];
+      mockSlots = [];
+      List<Map<String, dynamic>> currentRangeSlots = [];
 
-        for (var slot in jsonResponse) {
-          String range = slot['range'] ?? '';
-          List<String> rangeParts = range.split('-');
-          int rangeStart = int.tryParse(rangeParts[0]) ?? 0;
-          int rangeEnd = rangeParts.length > 1
-              ? int.tryParse(rangeParts[1]) ?? 0
-              : rangeStart;
+      for (var slot in jsonResponse) {
+        String range = slot['range'] ?? '';
+        List<String> rangeParts = range.split('-');
+        int rangeStart = int.tryParse(rangeParts[0]) ?? 0;
+        int rangeEnd = rangeParts.length > 1
+            ? int.tryParse(rangeParts[1]) ?? 0
+            : rangeStart;
 
-          if (currentRange != range) {
-            if (currentRangeSlots.isNotEmpty) {
-              mockSlots.addAll(currentRangeSlots);
-              currentRangeSlots.clear();
-              x = initialX;
-              y += extraRangeGap;
-            }
-            currentRange = range;
-          }
-
-          double tempX = x;
-          double tempY = y;
-
-          // Swap x and y
-          double temp = tempX;
-          tempX = tempY;
-          tempY = temp;
-
-          slot['x'] = tempX;
-          slot['y'] = tempY;
-
-          currentRangeSlots.add(slot);
-          x += xIncrement;
-
-          if (currentRangeSlots.length % slotsPerRow == 0) {
+        if (currentRange != range) {
+          if (currentRangeSlots.isNotEmpty) {
+            mockSlots.addAll(currentRangeSlots);
+            currentRangeSlots.clear();
             x = initialX;
+            y += extraRangeGap;
           }
+          currentRange = range;
         }
 
-        if (currentRangeSlots.isNotEmpty) {
-          mockSlots.addAll(currentRangeSlots);
-        }
+        double tempX = x;
+        double tempY = y;
 
-        // Initialize slot progress and timers
-        for (var slot in mockSlots) {
-          String slotId = slot['id'] ?? 'unknown';
-          String? remainingTimeStr = slot['remainingTime'];
-          Duration remainingTime = remainingTimeStr != null
-              ? parseDuration(remainingTimeStr)
-              : Duration.zero;
-          slotProgress[slotId] = 1.0;
-          slotTimers[slotId] = remainingTime;
-        }
+        // Swap x and y
+        double temp = tempX;
+        tempX = tempY;
+        tempY = temp;
 
-        // Debug print
-        for (var slot in mockSlots) {
-          print('Slot: id = ${slot['id']}, x = ${slot['x']}, y = ${slot['y']}');
+        slot['x'] = tempX;
+        slot['y'] = tempY;
+
+        currentRangeSlots.add(slot);
+        x += xIncrement;
+
+        if (currentRangeSlots.length % slotsPerRow == 0) {
+          x = initialX;
         }
-      });
-    } catch (e) {
-      debugPrint('Error loading JSON: $e');
+      }
+
+      if (currentRangeSlots.isNotEmpty) {
+        mockSlots.addAll(currentRangeSlots);
+      }
+
+      // Initialize slot progress and timers
+      for (var slot in mockSlots) {
+        String slotId = slot['id'] ?? 'unknown';
+        DateTime startTime = parseDateTime(slot['startTime']);
+        DateTime exitTime = parseDateTime(slot['exitTime']);
+        DateTime now = DateTime.now();
+
+        Duration totalDuration = exitTime.difference(startTime);
+        Duration elapsedDuration = now.difference(startTime);
+
+        double progress = totalDuration.inSeconds > 0
+            ? elapsedDuration.inSeconds / totalDuration.inSeconds
+            : 0.0;
+
+        slotProgress[slotId] = progress;
+        slotTimers[slotId] = exitTime.difference(now);
+        slotInitialTimes[slotId] = totalDuration;
+
+        // Save progress to SharedPreferences
+        saveProgress(slotId, progress);
+      }
+    });
+  } catch (e) {
+    debugPrint('Error loading JSON: $e');
+  }
+}
+
+  Future<void> saveProgress(String slotId, double progress) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble(slotId, progress);
+    print('Saved progress for slot $slotId: $progress');
+  }
+
+  Future<void> loadProgress() async {
+    final prefs = await SharedPreferences.getInstance();
+    for (var slot in mockSlots) {
+      String slotId = slot['id'] ?? 'unknown';
+      double? savedProgress = prefs.getDouble(slotId);
+      if (savedProgress != null) {
+        slotProgress[slotId] = savedProgress;
+        print('Loaded progress for slot $slotId: $savedProgress');
+      } else {
+        print('No saved progress for slot $slotId');
+      }
     }
   }
 
@@ -353,39 +385,58 @@ int progressUpdatesCount = 0;
     String seconds = twoDigits(duration.inSeconds.remainder(60));
     return "$hours:$minutes:$seconds";
   }
-
-  void startProgressUpdates() {
-  // Cancel any existing timer to avoid multiple timers running concurrently
+void startProgressUpdates() {
   progressTimer?.cancel();
 
   progressTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
     setState(() {
-      bool allZero = true;
       slotTimers.forEach((slotId, remainingTime) {
         if (remainingTime > Duration.zero) {
-          allZero = false;
           slotTimers[slotId] = remainingTime - const Duration(seconds: 1);
-          Duration initialTime = parseDuration(mockSlots
-              .firstWhere((slot) => slot['id'] == slotId)['remainingTime']);
-          slotProgress[slotId] =
-              slotTimers[slotId]!.inSeconds / initialTime.inSeconds;
+
+          // Get the stored initial time
+          Duration initialTime = slotInitialTimes[slotId] ?? Duration.zero;
+
+          // Update progress
+          if (initialTime.inSeconds > 0) {
+            slotProgress[slotId] =
+                remainingTime.inSeconds / initialTime.inSeconds;
+          } else {
+            slotProgress[slotId] = 0;
+          }
+
+          // Save progress to SharedPreferences
+          saveProgress(slotId, slotProgress[slotId]!);
+
+          // Debugging statements
+          print('Slot $slotId: Remaining Time = ${slotTimers[slotId]}, Initial Time = $initialTime, Progress = ${slotProgress[slotId]}');
         } else {
-          slotProgress[slotId] = 0;
+          slotProgress[slotId] = 0; // Completed
         }
       });
 
-      if (allZero) {
+      // Check if all timers have reached zero
+      if (slotTimers.values.every((time) => time <= Duration.zero)) {
         timer.cancel();
+        print('All timers have reached zero. Timer canceled.');
       }
     });
   });
 }
+  DateTime parseDateTime(String? dateTimeString) {
+    if (dateTimeString == null || dateTimeString.isEmpty) {
+      return DateTime.now(); // Return current time if null or empty
+    }
+    return DateTime.parse(dateTimeString);
+  }
 
   void selectSlot(String slotId) {
     setState(() {
       selectedSlotId = (selectedSlotId == slotId) ? null : slotId;
     });
   }
+
+
 
 // Function to convert row index to A-Z, AA, AB, etc.
 
@@ -717,170 +768,163 @@ int progressUpdatesCount = 0;
         return SizedBox();
     }
   }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back),
-          onPressed: () {
-            print("Back button pressed. Parking ID: ${widget.parkingId}");
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => DateTimeRangePickerScreen(
-                  parkingId: '',
-                ),
-              ),
-            );
-          },
-        ),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.refresh),
-            onPressed: () {
-              // Trigger the refresh action
-              refreshData();
-            },
-          ),
-        ],
-      ),
+Widget build(BuildContext context) {
+  return Scaffold(
+    appBar: AppBar(
       backgroundColor: Colors.white,
-      body: Column(
-        children: [
-          // Error Image and Text
-          if (showErrorImage)
-            Align(
-              alignment: Alignment.bottomCenter, // Align to the bottom center
-              child: Column(
-                mainAxisSize:
-                    MainAxisSize.min, // Minimize the height of the column
-                children: [
-                  Image.network(
-                    'https://res.cloudinary.com/dwdatqojd/image/upload/v1738778166/060c9fri-removebg-preview_lqj6eb.png', // Replace with your error image URL
-                    width: 200,
-                    height: 200,
-                  ),
-                  Text(
-                    'Please select a parking area first',
-                    style: TextStyle(color: Colors.red, fontSize: 16),
-                  ),
-                ],
+      leading: IconButton(
+        icon: Icon(Icons.arrow_back),
+        onPressed: () {
+          print("Back button pressed. Parking ID: ${widget.parkingId}");
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => DateTimeRangePickerScreen(
+                parkingId: '',
               ),
             ),
-          // Parking Slot Layout
-          Expanded(
-            child: mockSlots.isEmpty
-                ? const Center(
-                    child: CircularProgressIndicator(color: Colors.blue),
-                  )
-                : GestureDetector(
-                    onPanUpdate: (details) {
-                      setState(() {
-                        dragOffset = Offset(
-                          dragOffset.dx +
-                              details.localPosition.dx * dragSensitivity,
-                          dragOffset.dy +
-                              details.localPosition.dy * dragSensitivity,
-                        );
+          );
+        },
+      ),
+      actions: [
+        IconButton(
+          icon: Icon(Icons.refresh),
+          onPressed: () {
+            // Trigger the refresh action
+            refreshData();
+          },
+        ),
+      ],
+    ),
+    backgroundColor: Colors.white,
+    body: Column(
+      children: [
+        // Error Image and Text
+        if (showErrorImage)
+          Align(
+            alignment: Alignment.bottomCenter, // Align to the bottom center
+            child: Column(
+              mainAxisSize: MainAxisSize.min, // Minimize the height of the column
+              children: [
+                Image.network(
+                  '<url id="cuuvph7aa0vahobqofdg" type="url" status="failed" title="" wc="0">https://res.cloudinary.com/dwdatqojd/image/upload/v1738778166/060c9fri-removebg-preview_lqj6eb.png</url> ', // Replace with your error image URL
+                  width: 200,
+                  height: 200,
+                ),
+                Text(
+                  'Please select a parking area first',
+                  style: TextStyle(color: Colors.red, fontSize: 16),
+                ),
+              ],
+            ),
+          ),
+        // Parking Slot Layout
+        Expanded(
+          child: mockSlots.isEmpty
+              ? const Center(
+                  child: CircularProgressIndicator(color: Colors.blue),
+                )
+              : GestureDetector(
+                  onPanUpdate: (details) {
+                    setState(() {
+                      dragOffset = Offset(
+                        dragOffset.dx +
+                            details.localPosition.dx * dragSensitivity,
+                        dragOffset.dy +
+                            details.localPosition.dy * dragSensitivity,
+                      );
 
-                        // Implementing wraparound or infinite scroll horizontally
-                        if (dragOffset.dx > 3000) {
-                          dragOffset =
-                              Offset(dragOffset.dx - 3000, dragOffset.dy);
-                        } else if (dragOffset.dx < 0) {
-                          dragOffset =
-                              Offset(dragOffset.dx + 3000, dragOffset.dy);
-                        }
+                      // Implementing wraparound or infinite scroll horizontally
+                      if (dragOffset.dx > 3000) {
+                        dragOffset = Offset(dragOffset.dx - 3000, dragOffset.dy);
+                      } else if (dragOffset.dx < 0) {
+                        dragOffset = Offset(dragOffset.dx + 3000, dragOffset.dy);
+                      }
 
-                        // Implementing wraparound or infinite scroll vertically
-                        if (dragOffset.dy > 3000) {
-                          dragOffset =
-                              Offset(dragOffset.dx, dragOffset.dy - 3000);
-                        } else if (dragOffset.dy < 0) {
-                          dragOffset =
-                              Offset(dragOffset.dx, dragOffset.dy + 3000);
-                        }
-                      });
+                      // Implementing wraparound or infinite scroll vertically
+                      if (dragOffset.dy > 3000) {
+                        dragOffset = Offset(dragOffset.dx, dragOffset.dy - 3000);
+                      } else if (dragOffset.dy < 0) {
+                        dragOffset = Offset(dragOffset.dx, dragOffset.dy + 3000);
+                      }
+                    });
+                  },
+                  child: InteractiveViewer(
+                    panEnabled: true,
+                    scaleEnabled: true,
+                    minScale: 0.8,
+                    maxScale: 4.0,
+                    onInteractionUpdate: (details) {
+                      if (details.scale <= 0.3) {
+                        setState(() {
+                          dragOffset = Offset(0.0, 0.0);
+                        });
+                      }
                     },
-                    child: InteractiveViewer(
-                      panEnabled: true,
-                      scaleEnabled: true,
-                      minScale: 0.8,
-                      maxScale: 4.0,
-                      onInteractionUpdate: (details) {
-                        if (details.scale <= 0.3) {
-                          setState(() {
-                            dragOffset = Offset(0.0, 0.0);
-                          });
-                        }
-                      },
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
                       child: SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: SingleChildScrollView(
-                          scrollDirection: Axis.vertical,
-                          child: SizedBox(
-                            width: 800,
-                            height: 1500,
-                            child: Stack(children: [
-                              for (int i = 0; i < numRows; i++)
-                                Positioned(
-                                  left: 20,
-                                  top: (80.0 + labelSpacing) * i,
-                                  child: Text(
-                                    String.fromCharCode(65 + i),
-                                    style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold),
-                                  ),
+                        scrollDirection: Axis.vertical,
+                        child: SizedBox(
+                          width: 800,
+                          height: 1500,
+                          child: Stack(children: [
+                            for (int i = 0; i < numRows; i++)
+                              Positioned(
+                                left: 20,
+                                top: (80.0 + labelSpacing) * i,
+                                child: Text(
+                                  String.fromCharCode(65 + i),
+                                  style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold),
                                 ),
-                              ...mockSlots.map((slot) {
-                                String slotId = slot['id'] ?? 'unknown';
-                                bool isSelected = selectedSlotId == slotId;
-                                return Positioned(
-                                  left: slot['x'] + dragOffset.dx,
-                                  top: slot['y'] + dragOffset.dy,
-                                  child: SlotWidget(
-                                    slot: slot,
-                                    progress: slotProgress[slotId] ?? 1.0,
-                                    isSelected: isSelected,
-                                    onSelect: () {
-                                      selectSlot(slotId);
-                                      showSlotDetails(context, slot);
-                                    },
-                                    getIcon: getSlotIcon,
-                                    timerText: formatRemainingTime(
-                                        slotTimers[slotId] ?? Duration.zero),
-                                  ),
-                                );
-                              }).toList(),
-                            ]),
-                          ),
+                              ),
+                            ...mockSlots.map((slot) {
+                              String slotId = slot['id'] ?? 'unknown';
+                              bool isSelected = selectedSlotId == slotId;
+                              return Positioned(
+                                left: slot['x'] + dragOffset.dx,
+                                top: slot['y'] + dragOffset.dy,
+                                child: SlotWidget(
+                                  slot: slot,
+                                  progress: slotProgress[slotId] ?? 1.0,
+                                  isSelected: isSelected,
+                                  onSelect: () {
+                                    selectSlot(slotId);
+                                    showSlotDetails(context, slot);
+                                  },
+                                  getIcon: getSlotIcon,
+                                  timerText: formatRemainingTime(
+                                      slotTimers[slotId] ?? Duration.zero),
+                                ),
+                              );
+                            }).toList(),
+                          ]),
                         ),
                       ),
                     ),
                   ),
+                ),
+        ),
+        // Legend Section
+        Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _buildLegendBox(Colors.blueAccent, "Bike"),
+              SizedBox(width: 10),
+              _buildLegendBox(Colors.orangeAccent, "Car"),
+              SizedBox(width: 10),
+              _buildLegendBox(const Color.fromARGB(255, 82, 23, 23), "Bus"),
+            ],
           ),
-          // Legend Section
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                _buildLegendBox(Colors.blueAccent, "Bike"),
-                SizedBox(width: 10),
-                _buildLegendBox(Colors.orangeAccent, "Car"),
-                SizedBox(width: 10),
-                _buildLegendBox(const Color.fromARGB(255, 82, 23, 23), "Bus"),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+        ),
+      ],
+    ),
+  );
+}
 
 // Function to create the legend boxes
   Widget _buildLegendBox(Color color, String label) {

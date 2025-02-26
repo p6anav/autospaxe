@@ -261,7 +261,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<Map<String, dynamic>?> fetchParkingSpotById(int parkingId) async {
     try {
       final response = await http
-          .get(Uri.parse('https://backendspringboot2-production.up.railway.app/api/parking-spots/$parkingId'));
+          .get(Uri.parse('http://localhost:8080/api/parking-spots/$parkingId'));
 
       if (response.statusCode == 200) {
         Map<String, dynamic> data = jsonDecode(response.body);

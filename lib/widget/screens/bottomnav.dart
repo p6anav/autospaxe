@@ -1,4 +1,5 @@
 import 'package:autospaze/widget/screens/maps/booking.dart';
+import 'package:autospaze/widget/screens/status/status.dart';
 import 'package:flutter/material.dart';
 import 'Home/home_screen.dart'; // Import HomeScreen
 import 'maps/maps.dart';
@@ -22,7 +23,7 @@ class _BottomnavState extends State<Bottomnav> {
   final List<Widget> _screens = [
     HomeScreen(),
     
-   NextPage (searchQuery: '', parkingId: '',),  // Maps screen with DateTimePicker
+   SvgDisplayPage(),  // Maps screen with DateTimePicker
     Bookmarker(), // Bookmarks screen
     Profile(),    // Profile screen
   ];

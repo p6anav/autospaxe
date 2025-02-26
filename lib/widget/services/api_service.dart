@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class ApiService {
-  static const String baseUrl = 'https://backendspringboot2-production.up.railway.app/api';
+  static const String baseUrl = 'http://localhost:8080/api';
 
   Future<http.Response> login(String email, String password) async {
     final url = Uri.parse('$baseUrl/auth/login');
