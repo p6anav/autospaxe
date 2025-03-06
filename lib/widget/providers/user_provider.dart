@@ -5,9 +5,11 @@ import '../models/user.dart';
 class UserProvider with ChangeNotifier {
   User? _user;
   String _slotId = '';
+  String _fare = '0.0'; // Fare is now a String
 
   User? get user => _user;
   String get slotId => _slotId;
+  String get fare => _fare; // Getter returns a String
 
   Future<void> setUser(User user) async {
     _user = user;
@@ -27,29 +29,43 @@ class UserProvider with ChangeNotifier {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     await prefs.remove('user_id');
     await prefs.remove('user_email');
+    await prefs.remove('fare'); // Clear fare
   }
 
   Future<void> loadUser() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     String? userId = prefs.getString('user_id');
     String? userEmail = prefs.getString('user_email');
+    String? fare = prefs.getString('fare'); // Read fare as String
 
     if (userId != null && userEmail != null) {
       _user = User(id: userId, email: userEmail);
+      _fare = fare ?? '0.0'; // Default to '0.0' if fare is not found
       notifyListeners();
     }
   }
 
-  
   Future<void> setSlotId(String slotId) async {
-  _slotId = slotId;
-  notifyListeners();
+    _slotId = slotId;
+    notifyListeners();
 
-  // Save slotId to SharedPreferences
-  SharedPreferences prefs = await SharedPreferences.getInstance();
-  await prefs.setString('slot_id', slotId);
+    // Save slotId to SharedPreferences
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setString('slot_id', slotId);
 
-  // Print statement to verify the slotId is saved
-  print('Slot ID saved: $slotId');
-}
+    // Print statement to verify the slotId is saved
+    print('Slot ID saved: $slotId');
+  }
+
+  Future<void> setFare(String fare) async {
+    _fare = fare;
+    notifyListeners();
+
+    // Save fare to SharedPreferences
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setString('fare', fare);
+
+    // Print statement to verify the fare is saved
+    print('Fare saved: $fare');
+  }
 }

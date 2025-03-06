@@ -12,6 +12,8 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 
+
+
 class DateTimePickerPage extends StatefulWidget {
   const DateTimePickerPage({super.key});
 
@@ -28,13 +30,17 @@ class _DateTimePickerPageState extends State<DateTimePickerPage> with SingleTick
   late Animation<double> _opacityAnimation;
   late BookingData _bookingData; // Ensure this is initialized
 
+
   // State variables
   num currentValue = 0;
   DateTime? selectedDate;
   int selectedHours = 1;
   bool _isInteracting = false;
   bool _showButton = false;
+  bool _isLoading = true;
   
+  String? _error;
+
   // Time ranges for ruler picker
   List<RulerRange> timeRanges = const [
     RulerRange(begin: -12, end: 12, scale: 0.05),
@@ -65,8 +71,8 @@ class _DateTimePickerPageState extends State<DateTimePickerPage> with SingleTick
       fromLocation: "New York",
       toLocation: "Los Angeles",
       parkingSlot: "A1",
-      bookingTime: "10:00 AM",
-      parkingName: "Central Parking Lot",
+      bookingTime: "1e0:00 AM",
+      parkingName: "Centrfal Parking Lot",
       parkingAddress: "123 Main St, New York, NY 10001",
       parkingRating: 4.5,
       vehicleOptions: [
@@ -76,6 +82,36 @@ class _DateTimePickerPageState extends State<DateTimePickerPage> with SingleTick
       ],
     );
   }
+
+  Future<void> _loadBookingData() async {
+    try {
+      // Fetch data from the API
+      final userId = 35; // Replace with the actual user ID
+      final url = Uri.parse('http://localhost:8080/api/users/details/$userId');
+      final response = await http.get(url);
+
+      if (response.statusCode == 200) {
+        final jsonString = response.body;
+        final data = json.decode(jsonString);
+        _bookingData = BookingData.fromJson(data);
+
+        // Print the fetched data
+        print('Fetched Booking Data: $data');
+
+        setState(() {
+          _isLoading = false;
+        });
+      } else {
+        throw Exception('Failed to load booking data: ${response.body}');
+      }
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _error = 'Failed to load booking data: $e';
+      });
+    }
+  }
+
   
   @override
   void dispose() {
@@ -259,6 +295,9 @@ void _handleSubmit(BuildContext context) async {
       print('Response Body: ${response.body}');
 
       if (response.statusCode == 200) {
+        // Save the fare in the UserProvider
+        await userProvider.setFare(details.fare);
+
         // Navigate to the BookingPage with the booking data
         Navigator.push(
           context,

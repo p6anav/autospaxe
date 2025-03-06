@@ -1,4 +1,3 @@
-import 'package:autospaze/widget/screens/invoice/invoice_page.dart';
 import 'package:autospaze/widget/screens/payments/main.dart';
 import 'package:flutter/material.dart';
 import 'dart:convert';
@@ -9,14 +8,14 @@ class VehicleOption {
   final String model;
   final String type;
   final bool isDefault;
-  
+
   const VehicleOption({
     required this.brand,
     required this.model,
     required this.type,
     this.isDefault = false,
   });
-  
+
   factory VehicleOption.fromJson(Map<String, dynamic> json) {
     return VehicleOption(
       brand: json['brand'] ?? '',
@@ -37,7 +36,7 @@ class BookingData {
   final String parkingAddress;
   final double parkingRating;
   final List<VehicleOption> vehicleOptions;
-  
+
   BookingData({
     required this.fromLocation,
     required this.toLocation,
@@ -48,7 +47,7 @@ class BookingData {
     required this.parkingRating,
     required this.vehicleOptions,
   });
-  
+
   factory BookingData.fromJson(Map<String, dynamic> json) {
     return BookingData(
       fromLocation: json['fromLocation'] ?? '',
@@ -60,10 +59,11 @@ class BookingData {
       parkingRating: json['parkingRating'] ?? 0.0,
       vehicleOptions: (json['vehicleOptions'] as List?)
           ?.map((v) => VehicleOption.fromJson(v))
-          .toList() ?? [],
+          .toList() ??
+          [],
     );
   }
-  
+
   static BookingData parseJson(String jsonString) {
     final Map<String, dynamic> data = json.decode(jsonString);
     return BookingData.fromJson(data);
@@ -95,7 +95,13 @@ class BookingSlidingPanel extends StatelessWidget {
           topLeft: Radius.circular(30),
           topRight: Radius.circular(30),
         ),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.15), blurRadius: 12, offset: const Offset(0, -2))],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.15),
+            blurRadius: 12,
+            offset: const Offset(0, -2),
+          )
+        ],
       ),
       child: Column(
         children: [
@@ -121,9 +127,9 @@ class BookingSlidingPanel extends StatelessWidget {
                     const SizedBox(height: 12),
                     _buildDetailsSingleLine(),
                   ], padding: 16),
-                  
+
                   const SizedBox(height: 16),
-                  
+
                   // Vehicle selection container
                   AnimatedContainer(
                     duration: const Duration(milliseconds: 300),
@@ -131,7 +137,14 @@ class BookingSlidingPanel extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(20),
-                      boxShadow: [BoxShadow(color: Colors.deepPurple.withOpacity(0.12), blurRadius: 16, spreadRadius: -4, offset: const Offset(0, 6))],
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.deepPurple.withOpacity(0.12),
+                          blurRadius: 16,
+                          spreadRadius: -4,
+                          offset: const Offset(0, 6),
+                        )
+                      ],
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -159,20 +172,22 @@ class BookingSlidingPanel extends StatelessWidget {
                                         ),
                                       ),
                                     ),
-                                    
+
                                     const SizedBox(height: 2),
-                                    
+
                                     Padding(
                                       padding: const EdgeInsets.only(left: 30),
                                       child: Text(
                                         selectedVehicle.type,
-                                        style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                                        style: TextStyle(
+                                            color: Colors.grey.shade600,
+                                            fontSize: 13),
                                       ),
                                     ),
                                   ],
                                 ),
                               ),
-                              
+
                               // Toggle button for vehicle menu
                               InkWell(
                                 onTap: onVehicleMenuToggle,
@@ -180,11 +195,15 @@ class BookingSlidingPanel extends StatelessWidget {
                                   margin: const EdgeInsets.only(left: 8),
                                   padding: const EdgeInsets.all(8),
                                   decoration: BoxDecoration(
-                                    color: isVehicleMenuExpanded ? Colors.deepPurple.shade200 : Colors.deepPurple.shade100,
+                                    color: isVehicleMenuExpanded
+                                        ? Colors.deepPurple.shade200
+                                        : Colors.deepPurple.shade100,
                                     shape: BoxShape.circle,
                                   ),
                                   child: Icon(
-                                    isVehicleMenuExpanded ? Icons.remove : Icons.add,
+                                    isVehicleMenuExpanded
+                                        ? Icons.remove
+                                        : Icons.add,
                                     color: Colors.deepPurple.shade700,
                                     size: 20,
                                   ),
@@ -193,18 +212,20 @@ class BookingSlidingPanel extends StatelessWidget {
                             ],
                           ),
                         ),
-                        
+
                         // Expandable vehicle selection menu
                         AnimatedCrossFade(
                           firstChild: const SizedBox(height: 0),
                           secondChild: _buildVehicleSelectionMenu(),
-                          crossFadeState: isVehicleMenuExpanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+                          crossFadeState: isVehicleMenuExpanded
+                              ? CrossFadeState.showSecond
+                              : CrossFadeState.showFirst,
                           duration: const Duration(milliseconds: 300),
                         ),
-                        
+
                         // Parking details section
                         _buildParkingDetails(),
-                        
+
                         // Availability status
                         Padding(
                           padding: const EdgeInsets.all(16),
@@ -212,12 +233,13 @@ class BookingSlidingPanel extends StatelessWidget {
                             children: [
                               _buildDottedDivider(),
                               const SizedBox(height: 12),
-                              
+
                               _buildInfoRow(
                                 Icons.event_available,
                                 "Available Now",
                                 trailing: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 10, vertical: 5),
                                   decoration: BoxDecoration(
                                     color: Colors.green.shade100,
                                     borderRadius: BorderRadius.circular(16),
@@ -238,22 +260,18 @@ class BookingSlidingPanel extends StatelessWidget {
                       ],
                     ),
                   ),
-                  
+
                   const SizedBox(height: 24),
-                  
+
                   // Confirm booking button
                   ElevatedButton(
                     onPressed: () {
-
-
                       Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => PaymentApp(
-         // Ensure _bookingData is available here
-        ),
-      ),
-    );
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => PaymentApp(),
+                        ),
+                      );
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.deepPurple.shade600,
@@ -291,7 +309,7 @@ class BookingSlidingPanel extends StatelessWidget {
         children: [
           _buildDottedDivider(),
           const SizedBox(height: 16),
-          
+
           // Parking header label
           Container(
             margin: const EdgeInsets.only(bottom: 12),
@@ -309,7 +327,7 @@ class BookingSlidingPanel extends StatelessWidget {
               ),
             ),
           ),
-          
+
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -330,7 +348,8 @@ class BookingSlidingPanel extends StatelessWidget {
                       child: Center(
                         child: CircularProgressIndicator(
                           value: loadingProgress.expectedTotalBytes != null
-                              ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                              ? loadingProgress.cumulativeBytesLoaded /
+                                  loadingProgress.expectedTotalBytes!
                               : null,
                           strokeWidth: 2,
                           color: Colors.deepPurple.shade400,
@@ -342,13 +361,14 @@ class BookingSlidingPanel extends StatelessWidget {
                     width: 70,
                     height: 70,
                     color: Colors.grey.shade200,
-                    child: Icon(Icons.image_not_supported, color: Colors.grey.shade500),
+                    child: Icon(Icons.image_not_supported,
+                        color: Colors.grey.shade500),
                   ),
                 ),
               ),
-              
+
               const SizedBox(width: 16),
-              
+
               // Parking details
               Expanded(
                 child: Column(
@@ -362,9 +382,9 @@ class BookingSlidingPanel extends StatelessWidget {
                         color: Colors.black87,
                       ),
                     ),
-                    
+
                     const SizedBox(height: 4),
-                    
+
                     Text(
                       bookingData.parkingAddress,
                       style: TextStyle(
@@ -374,9 +394,9 @@ class BookingSlidingPanel extends StatelessWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    
+
                     const SizedBox(height: 6),
-                    
+
                     // Rating
                     Row(
                       children: [
@@ -405,9 +425,9 @@ class BookingSlidingPanel extends StatelessWidget {
               ),
             ],
           ),
-          
+
           const SizedBox(height: 16),
-          
+
           // Amenities row
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
@@ -422,7 +442,7 @@ class BookingSlidingPanel extends StatelessWidget {
               ],
             ),
           ),
-          
+
           const SizedBox(height: 16),
         ],
       ),
@@ -479,13 +499,13 @@ class BookingSlidingPanel extends StatelessWidget {
               ),
             ),
           ),
-          
+
           // List of vehicle options
           ...bookingData.vehicleOptions.map((vehicle) => _buildVehicleOption(vehicle)),
-          
+
           _buildDottedDivider(),
           const SizedBox(height: 12),
-          
+
           // Add new vehicle option
           InkWell(
             onTap: onVehicleMenuToggle,
@@ -526,9 +546,9 @@ class BookingSlidingPanel extends StatelessWidget {
 
   // Build a single vehicle option item
   Widget _buildVehicleOption(VehicleOption vehicle) {
-    final isSelected = vehicle.brand == selectedVehicle.brand && 
-                       vehicle.model == selectedVehicle.model;
-                       
+    final isSelected = vehicle.brand == selectedVehicle.brand &&
+        vehicle.model == selectedVehicle.model;
+
     return InkWell(
       onTap: () => onVehicleSelected(vehicle),
       child: Container(
@@ -554,10 +574,12 @@ class BookingSlidingPanel extends StatelessWidget {
                   width: 2,
                 ),
               ),
-              child: isSelected ? const Icon(Icons.check, size: 14, color: Colors.white) : null,
+              child: isSelected
+                  ? const Icon(Icons.check, size: 14, color: Colors.white)
+                  : null,
             ),
             const SizedBox(width: 12),
-            
+
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -703,7 +725,7 @@ class BookingSlidingPanel extends StatelessWidget {
   // Get location code from full location name (e.g. "New York" -> "NY")
   String getLocationCode(String location) {
     if (location.isEmpty) return "";
-    
+
     final words = location.split(" ");
     if (words.length >= 2) {
       String code = "";
@@ -711,7 +733,7 @@ class BookingSlidingPanel extends StatelessWidget {
         if (words[i].isNotEmpty) code += words[i][0];
       }
       return code.toUpperCase();
-    } 
+    }
     return location.length >= 3 ? location.substring(0, 3).toUpperCase() : location.toUpperCase();
   }
 
@@ -803,7 +825,7 @@ class BookingSlidingPanel extends StatelessWidget {
       ),
     );
   }
-  
+
   // Build icon with text for information display
   Widget _buildIconText(IconData icon, String text) {
     return Row(
@@ -861,42 +883,6 @@ class DottedLinePainter extends CustomPainter {
 }
 
 // Example usage:
-// 
-// final jsonString = await rootBundle.loadString('assets/booking_data.json');
-// final bookingData = BookingData.parseJson(jsonString);
-//
-// // In your state:
-// late VehicleOption _selectedVehicle;
-// bool _isVehicleMenuExpanded = false;
-//
-// @override
-// void initState() {
-//   super.initState();
-//   // Find default vehicle or use first one
-//   _selectedVehicle = bookingData.vehicleOptions.firstWhere(
-//     (v) => v.isDefault, 
-//     orElse: () => bookingData.vehicleOptions.first
-//   );
-// }
-//
-// // Then use the widget:
-// BookingSlidingPanel(
-//   bookingData: bookingData,
-//   selectedVehicle: _selectedVehicle,
-//   isVehicleMenuExpanded: _isVehicleMenuExpanded,
-//   onVehicleMenuToggle: () {
-//     setState(() {
-//       _isVehicleMenuExpanded = !_isVehicleMenuExpanded;
-//     });
-//   },
-//   onVehicleSelected: (vehicle) {
-//     setState(() {
-//       _selectedVehicle = vehicle;
-//       _isVehicleMenuExpanded = false;
-//     });
-//   },
-// )
-
 void main() {
   runApp(MyApp());
 }
@@ -963,11 +949,17 @@ class _BookingSlidingPanelExampleState extends State<BookingSlidingPanelExample>
 
     bookingData = BookingData.parseJson(jsonString);
 
-    // Find default vehicle or use first one
-    _selectedVehicle = bookingData.vehicleOptions.firstWhere(
-      (v) => v.isDefault, 
-      orElse: () => bookingData.vehicleOptions.first
-    );
+    // Find default vehicle or use first one if available
+    _selectedVehicle = bookingData.vehicleOptions.isNotEmpty
+        ? bookingData.vehicleOptions.firstWhere(
+            (v) => v.isDefault,
+            orElse: () => bookingData.vehicleOptions.first,
+          )
+        : VehicleOption(
+            brand: 'Default Brand',
+            model: 'Default Model',
+            type: 'Default Type',
+          );
   }
 
   @override

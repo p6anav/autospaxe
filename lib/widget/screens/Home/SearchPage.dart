@@ -1,4 +1,5 @@
 import 'package:autospaze/widget/providers/ParkingProvider.dart';
+import 'package:autospaze/widget/screens/bookings/loadingbar.dart';
 import 'package:autospaze/widget/screens/maps/datatime.dart';
 import 'package:autospaze/widget/services/api_service.dart';
 import 'package:flutter/material.dart';
@@ -337,9 +338,7 @@ Future<Map<String, dynamic>?> fetchParkingSpotById(int parkingId) async {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => DateTimeRangePickerScreen(
-                          parkingId: widget.parkingId,
-                        ),
+                        builder: (context) => LoadingScreen(),
                       ),
                     );
                   } else {

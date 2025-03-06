@@ -1,11 +1,9 @@
 import 'package:autospaze/widget/screens/bookings/BookingPage.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show rootBundle;
+import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'booking_page_widgets.dart';
 
-
-// Example of how to load the booking data from JSON and navigate to the BookingPage
 class ParkingApp extends StatelessWidget {
   const ParkingApp({Key? key}) : super(key: key);
 
@@ -42,15 +40,25 @@ class _BookingLauncherState extends State<BookingLauncher> {
 
   Future<void> _loadBookingData() async {
     try {
-      // Load the JSON file from assets
-      final jsonString = await rootBundle.loadString('assets/booking_data.json');
-      
-      // Parse the JSON and create a BookingData object
-      _bookingData = BookingData.parseJson(jsonString);
-      
-      setState(() {
-        _isLoading = false;
-      });
+      // Fetch data from the API
+      final userId = 35; // Replace with the actual user ID
+      final url = Uri.parse('http://localhost:8080/api/users/details/$userId');
+      final response = await http.get(url);
+
+      if (response.statusCode == 200) {
+        final jsonString = response.body;
+        final data = json.decode(jsonString);
+        _bookingData = BookingData.fromJson(data);
+
+        // Print the fetched data
+        print('Fetched Booking Data: $data');
+
+        setState(() {
+          _isLoading = false;
+        });
+      } else {
+        throw Exception('Failed to load booking data: ${response.body}');
+      }
     } catch (e) {
       setState(() {
         _isLoading = false;
@@ -87,7 +95,6 @@ class _BookingLauncherState extends State<BookingLauncher> {
   }
 }
 
-// Add this to your main.dart file
 void main() {
   runApp(const ParkingApp());
 }
