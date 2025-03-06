@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:autospaze/widget/models/user.dart';
+import 'package:autospaze/widget/providers/ParkingProvider.dart';
 import 'package:autospaze/widget/providers/user_provider.dart';
+import 'package:autospaze/widget/screens/bookings/DateTimePickerPage.dart';
 import 'package:autospaze/widget/screens/bookings/bookings.dart';
 import 'package:autospaze/widget/screens/bookmarks/app.dart';
 import 'package:flutter/services.dart';
@@ -14,7 +16,6 @@ import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
-
 
 class SvgUpdater extends StatefulWidget {
   final String searchQuery;
@@ -54,6 +55,8 @@ class _SvgUpdaterState extends State<SvgUpdater> {
   void initState() {
     super.initState();
     startAutoRefresh();
+    print(
+        "Opened map with Parking ID: ${widget.parkingId}, Name: ${widget.searchQuery}");
 
     // Show the initial bottom sheet
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -64,18 +67,21 @@ class _SvgUpdaterState extends State<SvgUpdater> {
         updateParkingSlots();
       });
     });
-  loadProgress();
+
+ 
     // Fetch slots from API and load them
     refreshData();
-
+    startProgressUpdates();
     // Start progress updates
     startProgressUpdates();
-  progressUpdatesCount++;
+    progressUpdatesCount++;
+    
   }
+
   void main() async {
-  // Update the remaining time for slot 79 to 1 hour and 30 minutes for user 2
-  await updateSlotRemainingTime('89', '01:30:00', '2');
-}
+    // Update the remaining time for slot 79 to 1 hour and 30 minutes for user 2
+    await updateSlotRemainingTime('89', '01:30:00', '2');
+  }
 
   void updateParkingSlots() {
     setState(() {
@@ -88,22 +94,23 @@ class _SvgUpdaterState extends State<SvgUpdater> {
       }
     });
   }
-int progressUpdatesCount = 0;
+
+  int progressUpdatesCount = 0;
 
   void startAutoRefresh() {
     const int maxProgressUpdates = 2;
-  const Duration autoRefreshInterval = Duration(seconds: 2);
-  Timer.periodic(autoRefreshInterval, (timer) {
-    refreshData();
-    if (progressUpdatesCount < maxProgressUpdates) {
-      startProgressUpdates();
-      progressUpdatesCount++;
-    }
-    if (progressUpdatesCount >= maxProgressUpdates) {
-      timer.cancel(); // Stop the timer after the maximum number of updates
-    }
-  });
-}
+    const Duration autoRefreshInterval = Duration(seconds: 2);
+    Timer.periodic(autoRefreshInterval, (timer) {
+      refreshData();
+      if (progressUpdatesCount < maxProgressUpdates) {
+        startProgressUpdates();
+        progressUpdatesCount++;
+      }
+      if (progressUpdatesCount >= maxProgressUpdates) {
+        timer.cancel(); // Stop the timer after the maximum number of updates
+      }
+    });
+  }
 
   @override
   void dispose() {
@@ -190,22 +197,34 @@ int progressUpdatesCount = 0;
     }
   }
 
-  // Add this at the top
   Future<void> fetchParkingDetails() async {
     try {
-      int parkingId = int.parse(widget.parkingId);
+      final parkingProvider =
+          Provider.of<ParkingProvider>(context, listen: false);
+      final parkingId = parkingProvider.parkingId;
+
+      if (parkingId.isEmpty) {
+        setState(() {
+          errorMessage = 'Please select a parking area first';
+          showErrorImage = false;
+        });
+        return;
+      }
+
       final response = await http.get(
         Uri.parse(
-            'http://localhost:8080/api/parking-slots/spot/$parkingId'),
+            'http://localhost:8080/api/parking-slots/property/$parkingId'),
       );
 
       if (response.statusCode == 200) {
         await loadJson(response.body); // Pass API response to loadJson
         setState(() {
-          errorMessage =
-              'Please select a parking area first'; // Clear any previous error messages on success
+          errorMessage = ''; // Clear any previous error messages
           showErrorImage = false; // Ensure no error image is shown
         });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Parking details fetched successfully')),
+        );
       } else {
         setState(() {
           errorMessage =
@@ -216,64 +235,72 @@ int progressUpdatesCount = 0;
     } catch (e) {
       setState(() {
         showErrorImage = true; // Show error image
+        errorMessage = 'An error occurred while fetching parking details.';
       });
       print("Error fetching parking spot: $e");
     }
   }
 
-
   Future<Map<String, dynamic>?> fetchParkingSpotById(int parkingId) async {
     try {
       final response = await http.get(
         Uri.parse(
-            'http://localhost:8080/api/parking-slots/spot/$parkingId'),
+            'http://localhost:8080/api/parking-slots/property/$parkingId'),
       );
-if (response.statusCode == 200) {
-    List<dynamic> data = jsonDecode(response.body);
-    setState(() {
-      mockSlots = data.map((slot) => Map<String, dynamic>.from(slot)).toList();
-      for (var slot in mockSlots) {
-        String slotId = slot['id'] ?? 'unknown';
-        DateTime? endTime = slot['exit_time'] != null ? DateTime.parse(slot['exit_time']) : null;
-        DateTime now = DateTime.now();
+      if (response.statusCode == 200) {
+        List<dynamic> data = jsonDecode(response.body);
+        setState(() {
+          mockSlots =
+              data.map((slot) => Map<String, dynamic>.from(slot)).toList();
+          for (var slot in mockSlots) {
+            String slotId = slot['id'] ?? 'unknown';
+            DateTime? endTime = slot['exit_time'] != null
+                ? DateTime.parse(slot['exit_time'])
+                : null;
+            DateTime now = DateTime.now();
 
-        Duration remainingTime = endTime != null ? endTime.difference(now) : Duration.zero;
-        if (remainingTime < Duration.zero) {
-          remainingTime = Duration.zero;
-        }
+            Duration remainingTime =
+                endTime != null ? endTime.difference(now) : Duration.zero;
+            if (remainingTime < Duration.zero) {
+              remainingTime = Duration.zero;
+            }
 
-        slotTimers[slotId] = remainingTime;
-        print('Slot ID: $slotId, Remaining Time: $remainingTime');
+            slotTimers[slotId] = remainingTime;
+            print('Slot ID: $slotId, Remaining Time: $remainingTime');
+          }
+        });
       }
-    });
-  } 
     } catch (e) {
       print("Error fetching parking spot by ID: $e");
       return null;
     }
   }
-Future<void> updateSlotRemainingTime(String slotId, String remainingTime, String userId) async {
-  try {
-    final response = await http.patch(
-      Uri.parse('http://localhost:8080/api/parking-slots/$slotId/remaining-time'),
-      body: {
-        'remainingTime': remainingTime,
-        'userId': userId,
-      },
-    );
 
-    if (response.statusCode == 200) {
-      // Successfully updated remaining time
-      print('Remaining time updated for slot $slotId');
-    } else {
-      print('Failed to update remaining time. Status code: ${response.statusCode}');
+  Future<void> updateSlotRemainingTime(
+      String slotId, String remainingTime, String userId) async {
+    try {
+      final response = await http.patch(
+        Uri.parse(
+            'http://localhost:8080/api/parking-slots/$slotId/remaining-time'),
+        body: {
+          'remainingTime': remainingTime,
+          'userId': userId,
+        },
+      );
+
+      if (response.statusCode == 200) {
+        // Successfully updated remaining time
+        print('Remaining time updated for slot $slotId');
+      } else {
+        print(
+            'Failed to update remaining time. Status code: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Error updating remaining time: $e');
     }
-  } catch (e) {
-    print('Error updating remaining time: $e');
   }
-}
-  
-Future<void> loadJson(String jsonEncode) async {
+
+ Future<void> loadJson(String jsonEncode) async {
   try {
     List<dynamic> jsonResponse = jsonDecode(jsonEncode); // Use passed JSON
     setState(() {
@@ -333,23 +360,41 @@ Future<void> loadJson(String jsonEncode) async {
       // Initialize slot progress and timers
       for (var slot in mockSlots) {
         String slotId = slot['id'] ?? 'unknown';
-        DateTime startTime = parseDateTime(slot['startTime']);
-        DateTime exitTime = parseDateTime(slot['exitTime']);
-        DateTime now = DateTime.now();
+        bool status = slot['status'] == true; // Check if status is true
 
-        Duration totalDuration = exitTime.difference(startTime);
-        Duration elapsedDuration = now.difference(startTime);
+        if (status) {
+          DateTime? exitTime = slot['exitTime'] != null ? parseDateTime(slot['exitTime']) : null;
+          DateTime now = DateTime.now();
 
-        double progress = totalDuration.inSeconds > 0
-            ? elapsedDuration.inSeconds / totalDuration.inSeconds
-            : 0.0;
+          Duration remainingTime = exitTime != null ? exitTime.difference(now) : Duration.zero;
+          if (remainingTime < Duration.zero) {
+            remainingTime = Duration.zero;
+          }
 
-        slotProgress[slotId] = progress;
-        slotTimers[slotId] = exitTime.difference(now);
-        slotInitialTimes[slotId] = totalDuration;
+          // Store initial time
+          DateTime startTime = parseDateTime(slot['startTime']);
+          Duration initialTime = exitTime != null ? exitTime.difference(startTime) : Duration.zero;
 
-        // Save progress to SharedPreferences
-        saveProgress(slotId, progress);
+          // Reset initial time if remaining time is zero
+          if (remainingTime == Duration.zero) {
+            initialTime = Duration.zero;
+          }
+
+          slotProgress[slotId] = 1.0;
+          slotTimers[slotId] = remainingTime;
+          slotInitialTimes[slotId] = initialTime; // Store initial time
+
+          print('Slot ID: $slotId, Remaining Time: $remainingTime');
+          print('Current Time: $now');
+          print('Exit Time from API: ${slot['exitTime']}');
+          print('Parsed Exit Time: $exitTime');
+          print('Initial Time: $initialTime');
+        } else {
+          // If status is false, set default values
+          slotProgress[slotId] = 0;
+          slotTimers[slotId] = Duration.zero;
+          slotInitialTimes[slotId] = Duration.zero;
+        }
       }
     });
   } catch (e) {
@@ -357,34 +402,15 @@ Future<void> loadJson(String jsonEncode) async {
   }
 }
 
-  Future<void> saveProgress(String slotId, double progress) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setDouble(slotId, progress);
-    print('Saved progress for slot $slotId: $progress');
-  }
+String formatRemainingTime(Duration duration) {
+  if (duration == Duration.zero) return '';
+  String twoDigits(int n) => n.toString().padLeft(2, '0');
+  String hours = twoDigits(duration.inHours);
+  String minutes = twoDigits(duration.inMinutes.remainder(60));
+  String seconds = twoDigits(duration.inSeconds.remainder(60));
+  return "$hours:$minutes:$seconds";
+}
 
-  Future<void> loadProgress() async {
-    final prefs = await SharedPreferences.getInstance();
-    for (var slot in mockSlots) {
-      String slotId = slot['id'] ?? 'unknown';
-      double? savedProgress = prefs.getDouble(slotId);
-      if (savedProgress != null) {
-        slotProgress[slotId] = savedProgress;
-        print('Loaded progress for slot $slotId: $savedProgress');
-      } else {
-        print('No saved progress for slot $slotId');
-      }
-    }
-  }
-
-  String formatRemainingTime(Duration duration) {
-    if (duration == Duration.zero) return '';
-    String twoDigits(int n) => n.toString().padLeft(2, '0');
-    String hours = twoDigits(duration.inHours);
-    String minutes = twoDigits(duration.inMinutes.remainder(60));
-    String seconds = twoDigits(duration.inSeconds.remainder(60));
-    return "$hours:$minutes:$seconds";
-  }
 void startProgressUpdates() {
   progressTimer?.cancel();
 
@@ -400,18 +426,17 @@ void startProgressUpdates() {
           // Update progress
           if (initialTime.inSeconds > 0) {
             slotProgress[slotId] =
-                remainingTime.inSeconds / initialTime.inSeconds;
+                slotTimers[slotId]!.inSeconds / initialTime.inSeconds;
           } else {
             slotProgress[slotId] = 0;
           }
 
-          // Save progress to SharedPreferences
-          saveProgress(slotId, slotProgress[slotId]!);
-
           // Debugging statements
           print('Slot $slotId: Remaining Time = ${slotTimers[slotId]}, Initial Time = $initialTime, Progress = ${slotProgress[slotId]}');
         } else {
-          slotProgress[slotId] = 0; // Completed
+          slotProgress[slotId] = 0;
+          // Reset initial time when remaining time reaches zero
+          slotInitialTimes[slotId] = Duration.zero;
         }
       });
 
@@ -423,21 +448,19 @@ void startProgressUpdates() {
     });
   });
 }
-  DateTime parseDateTime(String? dateTimeString) {
-    if (dateTimeString == null || dateTimeString.isEmpty) {
-      return DateTime.now(); // Return current time if null or empty
-    }
-    return DateTime.parse(dateTimeString);
+
+DateTime parseDateTime(String? dateTimeString) {
+  if (dateTimeString == null || dateTimeString.isEmpty) {
+    return DateTime.now(); // Return current time if null or empty
   }
+  return DateTime.parse(dateTimeString);
+}
 
-  void selectSlot(String slotId) {
-    setState(() {
-      selectedSlotId = (selectedSlotId == slotId) ? null : slotId;
-    });
-  }
-
-
-
+void selectSlot(String slotId) {
+  setState(() {
+    selectedSlotId = (selectedSlotId == slotId) ? null : slotId;
+  });
+}
 // Function to convert row index to A-Z, AA, AB, etc.
 
   final List<String> imageUrls = [
@@ -670,16 +693,22 @@ void startProgressUpdates() {
                       // Call the API to hold the slot
                       final response = await http.patch(
                         Uri.parse(
-                            'https://backendspringboot2-production.up.railway.app/api/parking-slots/$slotId/hold'),
+                            'http://localhost:8080/api/parking-slots/$slotId/hold'),
                         body: {'userId': user.id},
                       );
 
                       if (response.statusCode == 200) {
+                        // Save the slotId in SharedPreferences
+                        userProvider.setSlotId(slotId);
+
+                        // Print success message
+                        print('Slot ID saved successfully: $slotId');
+
                         // Navigate to the next page if the slot is held successfully
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => BookScreen(),
+                            builder: (context) => DateTimePickerPage(),
                           ),
                         );
                       } else {
@@ -768,163 +797,169 @@ void startProgressUpdates() {
         return SizedBox();
     }
   }
-Widget build(BuildContext context) {
-  return Scaffold(
-    appBar: AppBar(
-      backgroundColor: Colors.white,
-      leading: IconButton(
-        icon: Icon(Icons.arrow_back),
-        onPressed: () {
-          print("Back button pressed. Parking ID: ${widget.parkingId}");
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => DateTimeRangePickerScreen(
-                parkingId: '',
-              ),
-            ),
-          );
-        },
-      ),
-      actions: [
-        IconButton(
-          icon: Icon(Icons.refresh),
+
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back),
           onPressed: () {
-            // Trigger the refresh action
-            refreshData();
+            print("Back button pressed. Parking ID: ${widget.parkingId}");
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => DateTimeRangePickerScreen(
+                  parkingId: '',
+                ),
+              ),
+            );
           },
         ),
-      ],
-    ),
-    backgroundColor: Colors.white,
-    body: Column(
-      children: [
-        // Error Image and Text
-        if (showErrorImage)
-          Align(
-            alignment: Alignment.bottomCenter, // Align to the bottom center
-            child: Column(
-              mainAxisSize: MainAxisSize.min, // Minimize the height of the column
-              children: [
-                Image.network(
-                  '<url id="cuuvph7aa0vahobqofdg" type="url" status="failed" title="" wc="0">https://res.cloudinary.com/dwdatqojd/image/upload/v1738778166/060c9fri-removebg-preview_lqj6eb.png</url> ', // Replace with your error image URL
-                  width: 200,
-                  height: 200,
-                ),
-                Text(
-                  'Please select a parking area first',
-                  style: TextStyle(color: Colors.red, fontSize: 16),
-                ),
-              ],
-            ),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.refresh),
+            onPressed: () {
+              // Trigger the refresh action
+              refreshData();
+            },
           ),
-        // Parking Slot Layout
-        Expanded(
-          child: mockSlots.isEmpty
-              ? const Center(
-                  child: CircularProgressIndicator(color: Colors.blue),
-                )
-              : GestureDetector(
-                  onPanUpdate: (details) {
-                    setState(() {
-                      dragOffset = Offset(
-                        dragOffset.dx +
-                            details.localPosition.dx * dragSensitivity,
-                        dragOffset.dy +
-                            details.localPosition.dy * dragSensitivity,
-                      );
+        ],
+      ),
+      backgroundColor: Colors.white,
+      body: Column(
+        children: [
+          // Error Image and Text
+          if (showErrorImage)
+            Align(
+              alignment: Alignment.bottomCenter, // Align to the bottom center
+              child: Column(
+                mainAxisSize:
+                    MainAxisSize.min, // Minimize the height of the column
+                children: [
+                  Image.network(
+                    '<url id="cuuvph7aa0vahobqofdg" type="url" status="failed" title="" wc="0">https://res.cloudinary.com/dwdatqojd/image/upload/v1738778166/060c9fri-removebg-preview_lqj6eb.png</url> ', // Replace with your error image URL
+                    width: 200,
+                    height: 200,
+                  ),
+                  Text(
+                    'Please select a parking area first',
+                    style: TextStyle(color: Colors.red, fontSize: 16),
+                  ),
+                ],
+              ),
+            ),
+          // Parking Slot Layout
+          Expanded(
+            child: mockSlots.isEmpty
+                ? const Center(
+                    child: CircularProgressIndicator(color: Colors.blue),
+                  )
+                : GestureDetector(
+                    onPanUpdate: (details) {
+                      setState(() {
+                        dragOffset = Offset(
+                          dragOffset.dx +
+                              details.localPosition.dx * dragSensitivity,
+                          dragOffset.dy +
+                              details.localPosition.dy * dragSensitivity,
+                        );
 
-                      // Implementing wraparound or infinite scroll horizontally
-                      if (dragOffset.dx > 3000) {
-                        dragOffset = Offset(dragOffset.dx - 3000, dragOffset.dy);
-                      } else if (dragOffset.dx < 0) {
-                        dragOffset = Offset(dragOffset.dx + 3000, dragOffset.dy);
-                      }
+                        // Implementing wraparound or infinite scroll horizontally
+                        if (dragOffset.dx > 3000) {
+                          dragOffset =
+                              Offset(dragOffset.dx - 3000, dragOffset.dy);
+                        } else if (dragOffset.dx < 0) {
+                          dragOffset =
+                              Offset(dragOffset.dx + 3000, dragOffset.dy);
+                        }
 
-                      // Implementing wraparound or infinite scroll vertically
-                      if (dragOffset.dy > 3000) {
-                        dragOffset = Offset(dragOffset.dx, dragOffset.dy - 3000);
-                      } else if (dragOffset.dy < 0) {
-                        dragOffset = Offset(dragOffset.dx, dragOffset.dy + 3000);
-                      }
-                    });
-                  },
-                  child: InteractiveViewer(
-                    panEnabled: true,
-                    scaleEnabled: true,
-                    minScale: 0.8,
-                    maxScale: 4.0,
-                    onInteractionUpdate: (details) {
-                      if (details.scale <= 0.3) {
-                        setState(() {
-                          dragOffset = Offset(0.0, 0.0);
-                        });
-                      }
+                        // Implementing wraparound or infinite scroll vertically
+                        if (dragOffset.dy > 3000) {
+                          dragOffset =
+                              Offset(dragOffset.dx, dragOffset.dy - 3000);
+                        } else if (dragOffset.dy < 0) {
+                          dragOffset =
+                              Offset(dragOffset.dx, dragOffset.dy + 3000);
+                        }
+                      });
                     },
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
+                    child: InteractiveViewer(
+                      panEnabled: true,
+                      scaleEnabled: true,
+                      minScale: 0.8,
+                      maxScale: 4.0,
+                      onInteractionUpdate: (details) {
+                        if (details.scale <= 0.3) {
+                          setState(() {
+                            dragOffset = Offset(0.0, 0.0);
+                          });
+                        }
+                      },
                       child: SingleChildScrollView(
-                        scrollDirection: Axis.vertical,
-                        child: SizedBox(
-                          width: 800,
-                          height: 1500,
-                          child: Stack(children: [
-                            for (int i = 0; i < numRows; i++)
-                              Positioned(
-                                left: 20,
-                                top: (80.0 + labelSpacing) * i,
-                                child: Text(
-                                  String.fromCharCode(65 + i),
-                                  style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold),
+                        scrollDirection: Axis.horizontal,
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.vertical,
+                          child: SizedBox(
+                            width: 800,
+                            height: 1500,
+                            child: Stack(children: [
+                              for (int i = 0; i < numRows; i++)
+                                Positioned(
+                                  left: 20,
+                                  top: (80.0 + labelSpacing) * i,
+                                  child: Text(
+                                    String.fromCharCode(65 + i),
+                                    style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold),
+                                  ),
                                 ),
-                              ),
-                            ...mockSlots.map((slot) {
-                              String slotId = slot['id'] ?? 'unknown';
-                              bool isSelected = selectedSlotId == slotId;
-                              return Positioned(
-                                left: slot['x'] + dragOffset.dx,
-                                top: slot['y'] + dragOffset.dy,
-                                child: SlotWidget(
-                                  slot: slot,
-                                  progress: slotProgress[slotId] ?? 1.0,
-                                  isSelected: isSelected,
-                                  onSelect: () {
-                                    selectSlot(slotId);
-                                    showSlotDetails(context, slot);
-                                  },
-                                  getIcon: getSlotIcon,
-                                  timerText: formatRemainingTime(
-                                      slotTimers[slotId] ?? Duration.zero),
-                                ),
-                              );
-                            }).toList(),
-                          ]),
+                              ...mockSlots.map((slot) {
+                                String slotId = slot['id'] ?? 'unknown';
+                                bool isSelected = selectedSlotId == slotId;
+                                return Positioned(
+                                  left: slot['x'] + dragOffset.dx,
+                                  top: slot['y'] + dragOffset.dy,
+                                  child: SlotWidget(
+                                    slot: slot,
+                                    progress: slotProgress[slotId] ?? 1.0,
+                                    isSelected: isSelected,
+                                    onSelect: () {
+                                      selectSlot(slotId);
+                                      showSlotDetails(context, slot);
+                                    },
+                                    getIcon: getSlotIcon,
+                                    timerText: formatRemainingTime(
+                                        slotTimers[slotId] ?? Duration.zero),
+                                  ),
+                                );
+                              }).toList(),
+                            ]),
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
-        ),
-        // Legend Section
-        Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _buildLegendBox(Colors.blueAccent, "Bike"),
-              SizedBox(width: 10),
-              _buildLegendBox(Colors.orangeAccent, "Car"),
-              SizedBox(width: 10),
-              _buildLegendBox(const Color.fromARGB(255, 82, 23, 23), "Bus"),
-            ],
           ),
-        ),
-      ],
-    ),
-  );
-}
+          // Legend Section
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _buildLegendBox(Colors.blueAccent, "Bike"),
+                SizedBox(width: 10),
+                _buildLegendBox(Colors.orangeAccent, "Car"),
+                SizedBox(width: 10),
+                _buildLegendBox(const Color.fromARGB(255, 82, 23, 23), "Bus"),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
 // Function to create the legend boxes
   Widget _buildLegendBox(Color color, String label) {

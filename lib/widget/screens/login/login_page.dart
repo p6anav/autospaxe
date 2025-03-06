@@ -58,8 +58,7 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
   void _navigateToSignUpPage() {
     Navigator.push(context, MaterialPageRoute(builder: (context) => const SignUpPage()));
   }
-
-  Future<void> _loginUser(BuildContext context) async {
+ Future<void> _loginUser(BuildContext context) async {
     try {
       final email = _emailController.text.trim();
       final password = _passwordController.text.trim();
@@ -79,15 +78,11 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
       print("Response Body: ${response.body}");
 
       if (response.statusCode == 200) {
-        final responseData = jsonDecode(response.body);
-
-        // Convert userId to String before storing
-        String userId = responseData['userId'].toString();
-        String userEmail = responseData['email'].toString();
+        final userId = jsonDecode(response.body);
 
         // Set user in UserProvider
         final userProvider = Provider.of<UserProvider>(context, listen: false);
-        await userProvider.setUser(User(id: userId, email: userEmail));
+        await userProvider.setUser(User(id: userId.toString(), email: email));
 
         print("Login Successful. User ID: $userId");
 
@@ -104,7 +99,12 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
         if (response.statusCode == 401) {
           errorMessage = "Invalid email or password.";
         } else if (response.statusCode == 400) {
-          errorMessage = "Bad request. Please check your input.";
+          try {
+            final errorData = jsonDecode(response.body);
+            errorMessage = errorData['error'] ?? "Bad request. Please check your input.";
+          } catch (e) {
+            errorMessage = "Bad request. Please check your input.";
+          }
         } else {
           errorMessage = "An error occurred. Please try again.";
         }

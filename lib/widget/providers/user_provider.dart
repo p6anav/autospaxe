@@ -4,8 +4,10 @@ import '../models/user.dart';
 
 class UserProvider with ChangeNotifier {
   User? _user;
+  String _slotId = '';
 
   User? get user => _user;
+  String get slotId => _slotId;
 
   Future<void> setUser(User user) async {
     _user = user;
@@ -37,4 +39,17 @@ class UserProvider with ChangeNotifier {
       notifyListeners();
     }
   }
+
+  
+  Future<void> setSlotId(String slotId) async {
+  _slotId = slotId;
+  notifyListeners();
+
+  // Save slotId to SharedPreferences
+  SharedPreferences prefs = await SharedPreferences.getInstance();
+  await prefs.setString('slot_id', slotId);
+
+  // Print statement to verify the slotId is saved
+  print('Slot ID saved: $slotId');
+}
 }

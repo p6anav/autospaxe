@@ -1,5 +1,6 @@
 import 'package:autospaze/widget/providers/ParkingProvider.dart';
 import 'package:autospaze/widget/screens/maps/datatime.dart';
+import 'package:autospaze/widget/services/api_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -29,10 +30,12 @@ class TomTomRoutingPage extends StatefulWidget {
 
 class _TomTomRoutingPageState extends State<TomTomRoutingPage> {
   late MapController _mapController;
+  final ApiService apiService = ApiService();
   late TextEditingController _searchController;
   List<LatLng> _routeCoordinates = [];
   LatLng? _destination;
    Map<String, dynamic>? parkingSpot;
+    late Future<List<Map<String, dynamic>>> _futureParkingSpots;
   
   bool isLoading = true;
   String? errorMessage;
@@ -69,10 +72,11 @@ class _TomTomRoutingPageState extends State<TomTomRoutingPage> {
   @override
   void initState() {
     super.initState();
-    print("Opened TomTomRoutingPage with Parking ID: ${widget.parkingId}, Name: ${widget.searchQuery}");
+    print("Opened TomTomRoutingPagesearch with Parking ID: ${widget.parkingId}, Name: ${widget.searchQuery}");
     _mapController = MapController();
     _searchController = TextEditingController(text: widget.searchQuery);
-    fetchParkingDetails();
+    getNearbyParkingSdpots();
+     _futureParkingSpots = apiService.getNearbyParkingSdpots();
   }
 
   // Function to calculate the route and update the map with polyline
@@ -92,7 +96,7 @@ class _TomTomRoutingPageState extends State<TomTomRoutingPage> {
       );
     }
   }
-Future<void> fetchParkingDetails() async {
+Future<void> getNearbyParkingSdpots() async {
     try {
       int parkingId =
           int.parse(widget.parkingId); // Ensure this is coming from the widget
@@ -118,32 +122,29 @@ Future<void> fetchParkingDetails() async {
       });
     }
   }
+Future<Map<String, dynamic>?> fetchParkingSpotById(int parkingId) async {
+  try {
+    final response = await http.get(Uri.parse('http://localhost:8080/api/properties/$parkingId'));
 
-  Future<Map<String, dynamic>?> fetchParkingSpotById(int parkingId) async {
-    try {
-      final response = await http
-          .get(Uri.parse('http://localhost:8080/api/parking-spots/$parkingId'));
-
-      if (response.statusCode == 200) {
-        Map<String, dynamic> data = jsonDecode(response.body);
-        return {
-          'id': data['id'],
-          'name': data['name'],
-          'description': data['description'],
-          'imageUrl': data['imageUrl'],
-          'latitude': data['latitude'],
-          'longitude': data['longitude'],
-          'ratePerHour': data['ratePerHour'],
-        };
-      } else {
-        throw Exception("Failed to load parking spot: ${response.statusCode}");
-      }
-    } catch (e) {
-      print("Error fetching parking spot: $e");
-      return null;
+    if (response.statusCode == 200) {
+      Map<String, dynamic> data = jsonDecode(response.body);
+      return {
+        'propertyId': data['propertyId'].toString(),  // Ensure propertyId is a String
+        'name': data['name'] ?? 'N/A',  // Provide a default value if name is null
+        'description': data['description'] ?? 'No description available',  // Provide a default value if description is null
+        'imageUrl': data['imageUrl'] ?? 'https://via.placeholder.com/150x150',  // Provide a fallback image URL
+        'latitude': data['latitude'] ?? 0.0,  // Provide a default value if latitude is null
+        'longitude': data['longitude'] ?? 0.0,  // Provide a default value if longitude is null
+        'ratePerHour': data['ratePerHour'] ?? 0.0,  // Provide a default value if ratePerHour is null
+      };
+    } else {
+      throw Exception("Failed to load parking spot: ${response.statusCode}");
     }
+  } catch (e) {
+    print("Error fetching parking spot: $e");
+    return null;
   }
-
+}
   // Function to fetch route from TomTom API
   Future<List<LatLng>> _getRouteFromTomTom(LatLng start, LatLng end) async {
     String apiKey = '8CKwch3uCDAuLbcrffLiAx8IdhU9bGKS';
@@ -324,7 +325,7 @@ Future<void> fetchParkingDetails() async {
                   if (fetchedSpot != null) {
                     // Update the ParkingProvider with the fetched details
                     Provider.of<ParkingProvider>(context, listen: false).setParkingSpot(
-                      id: fetchedSpot['id'].toString(),
+                      id: fetchedSpot['propertyId'].toString(),
                       name: fetchedSpot['name'],
                       description: fetchedSpot['description'],
                       imageUrl: fetchedSpot['imageUrl'],

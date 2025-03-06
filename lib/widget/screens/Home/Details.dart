@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'dart:async';
 import 'package:provider/provider.dart';
 import 'package:autospaze/widget/providers/ParkingProvider.dart';
 import 'package:autospaze/widget/screens/bookings/bookings.dart';
@@ -21,11 +22,11 @@ class _TomTomRoutingPageState extends State<TomTomRoutD> {
   Map<String, dynamic>? parkingSpot;
   bool isLoading = true;
   String? errorMessage;
+  Timer? _timer;
 
   Future<void> fetchParkingDetails() async {
     try {
-      int parkingId =
-          int.parse(widget.parkingId); // Ensure this is coming from the widget
+      int parkingId = int.parse(widget.parkingId); // Ensure this is coming from the widget
 
       Map<String, dynamic>? fetchedSpot = await fetchParkingSpotById(parkingId);
 
@@ -51,13 +52,12 @@ class _TomTomRoutingPageState extends State<TomTomRoutD> {
 
   Future<Map<String, dynamic>?> fetchParkingSpotById(int parkingId) async {
     try {
-      final response = await http
-          .get(Uri.parse('http://localhost:8080/api/parking-spots/$parkingId'));
+      final response = await http.get(Uri.parse('http://localhost:8080/api/properties/$parkingId'));
 
       if (response.statusCode == 200) {
         Map<String, dynamic> data = jsonDecode(response.body);
         return {
-          'id': data['id'],
+          'property_id': data['property_id'],
           'name': data['name'],
           'description': data['description'],
           'imageUrl': data['imageUrl'],
@@ -79,25 +79,33 @@ class _TomTomRoutingPageState extends State<TomTomRoutD> {
     super.initState();
     print("Opened TomTomRoutingPage with Parking ID: ${widget.parkingId}");
     fetchParkingDetails();
+    // Start polling every 5 seconds
+    _timer = Timer.periodic(Duration(seconds: 2), (Timer t) => fetchParkingDetails());_timer = Timer.periodic(Duration(seconds: 2), (Timer t) => fetchParkingDetails());
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel(); // Cancel the timer when the widget is disposed
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color.fromARGB(255, 247, 242, 242),
       appBar: AppBar(
-      
+        backgroundColor: const Color.fromARGB(255, 39, 38, 38),
         leading: IconButton(
-          icon: Icon(Icons.arrow_back),
+          icon: Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () {
             Navigator.pop(context); // Navigate back
           },
         ),
       ),
       body: Padding(
-           padding: const EdgeInsets.all(16.0), 
+        padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            // Add the rounded image at the top center
             Container(
               height: 300, // Adjust the height as needed
               child: Align(
@@ -109,7 +117,7 @@ class _TomTomRoutingPageState extends State<TomTomRoutD> {
                         ? parkingSpot!['imageUrl']
                         : 'https://via.placeholder.com/150',
                     height: 250, // Adjust the height as needed
-                        width: double.infinity,// Adjust the height as needed
+                    width: double.infinity, // Adjust the width as needed
                     fit: BoxFit.cover,
                     errorBuilder: (context, error, stackTrace) =>
                         Icon(Icons.image_not_supported, size: 120),
@@ -139,15 +147,12 @@ class _TomTomRoutingPageState extends State<TomTomRoutD> {
                     ElevatedButton(
                       onPressed: () async {
                         try {
-                          int parkingId = int.parse(
-                              widget.parkingId); // Convert String to int
-                          Map<String, dynamic>? fetchedSpot =
-                              await fetchParkingSpotById(parkingId);
-        
+                          int parkingId = int.parse(widget.parkingId); // Convert String to int
+                          Map<String, dynamic>? fetchedSpot = await fetchParkingSpotById(parkingId);
+
                           if (fetchedSpot != null) {
                             // Update the ParkingProvider with the fetched details
-                            Provider.of<ParkingProvider>(context, listen: false)
-                                .setParkingSpot(
+                            Provider.of<ParkingProvider>(context, listen: false).setParkingSpot(
                               id: fetchedSpot['id'].toString(),
                               name: fetchedSpot['name'],
                               description: fetchedSpot['description'],
@@ -156,7 +161,7 @@ class _TomTomRoutingPageState extends State<TomTomRoutD> {
                               longitude: fetchedSpot['longitude'],
                               ratePerHour: fetchedSpot['ratePerHour'],
                             );
-        
+
                             Navigator.push(
                               context,
                               MaterialPageRoute(
@@ -173,8 +178,7 @@ class _TomTomRoutingPageState extends State<TomTomRoutD> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color.fromARGB(255, 0, 0, 0),
                         foregroundColor: Colors.white,
-                        padding:
-                            EdgeInsets.symmetric(vertical: 20, horizontal: 40),
+                        padding: EdgeInsets.symmetric(vertical: 20, horizontal: 40),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(15),
                         ),
@@ -182,8 +186,7 @@ class _TomTomRoutingPageState extends State<TomTomRoutD> {
                       ),
                       child: Text(
                         "Proceed to Booking",
-                        style:
-                            TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                       ),
                     ),
                   ],

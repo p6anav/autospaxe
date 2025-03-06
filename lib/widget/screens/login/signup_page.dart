@@ -71,6 +71,7 @@ class _SignUpPageState extends State<SignUpPage> with SingleTickerProviderStateM
     );
   }
 
+  
   Future<void> signupUser() async {
     final username = _usernameController.text.trim();
     final email = _emailController.text.trim();
@@ -115,7 +116,7 @@ class _SignUpPageState extends State<SignUpPage> with SingleTickerProviderStateM
       await prefs.setInt('userId', userId);
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Signup successful! User ID")),
+        SnackBar(content: Text("Signup successful! User ID: $userId")),
       );
 
       // Navigate to another screen after signup (Example: LoginPage)
@@ -129,7 +130,6 @@ class _SignUpPageState extends State<SignUpPage> with SingleTickerProviderStateM
       );
     }
   }
-
   void _validateSignUp() {
     setState(() {
       _emailError = _validateEmail(_emailController.text);
@@ -181,7 +181,7 @@ class _SignUpPageState extends State<SignUpPage> with SingleTickerProviderStateM
               child: Container(
                 padding: const EdgeInsets.all(20),
                 decoration: const BoxDecoration(
-                  color: Colors.black,
+                  color:const Color.fromARGB(255, 39, 38, 38),
                   borderRadius: BorderRadius.only(
                     topLeft: Radius.circular(70),
                     topRight: Radius.circular(70),

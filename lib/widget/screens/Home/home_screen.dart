@@ -17,6 +17,8 @@ import 'dart:math';
 import 'package:autospaze/widget/services/api_service.dart';
 import 'package:autospaze/widget/models/ParkingSpot.dart';
 import 'package:autospaze/widget/providers/ParkingProvider.dart';
+import 'package:google_fonts/google_fonts.dart';
+
 
 final double _fixedZoomLevel = 16.5;
 final double minzoom = 20;
@@ -95,6 +97,7 @@ class _HomeScreenState extends State<HomeScreen> {
   List<Polyline> _polylines = []; // For storing polylines between locations
   bool _locationPermissionGranted = false;
   late final String parkingId;
+  
 
   List<Map<String, dynamic>> _parkingLocations = [
     {
@@ -127,7 +130,7 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     _mapController = MapController();
     _checkPermissions();
-    _futureParkingSpots = apiService.getNearbyParkingSpots();
+    _futureParkingSpots = apiService.getNearbyParkingSdpots();
     
    
    
@@ -261,12 +264,12 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<Map<String, dynamic>?> fetchParkingSpotById(int parkingId) async {
     try {
       final response = await http
-          .get(Uri.parse('http://localhost:8080/api/parking-spots/$parkingId'));
+          .get(Uri.parse('http://localhost:8080/api/properties/$parkingId'));
 
       if (response.statusCode == 200) {
         Map<String, dynamic> data = jsonDecode(response.body);
         return {
-          'id': data['id'],
+          'property_id': data['id'],
           'name': data['name'],
           'description': data['description'],
           'imageUrl': data['imageUrl'],
@@ -300,6 +303,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color.fromARGB(255, 39, 38, 38),
      
       body: SingleChildScrollView(
         child: Column(
@@ -379,12 +383,11 @@ Widget _buildSearchBar() {
     ],
   );
 }
-
 Widget buildCardWithImageTextAndButton() {
   return Container(
-    margin: const EdgeInsets.all(16.0), // Margin around the container
+    margin: const EdgeInsets.all(20.0), // Margin around the container
     decoration: BoxDecoration(
-      color: const Color.fromARGB(193, 6, 73, 218),
+      color: const Color.fromARGB(217, 55, 53, 53),
       borderRadius: BorderRadius.circular(16), // Rounded corners
       border: Border.all(color: const Color.fromARGB(38, 0, 0, 0), width: 2),
       boxShadow: [
@@ -399,45 +402,89 @@ Widget buildCardWithImageTextAndButton() {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
         // Image container
-        ClipRRect(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-          
-        ),
-        // Random text or content
+        
+        // Row with icons and text
         Container(
-          padding: const EdgeInsets.all(16.0),
          
-          child: Text(
-            'The button has some padding to make it look like a card button. You can customize the button style and action as per!',
-            style: TextStyle(
-              fontSize: 12,
-             
-              color: Colors.white,
-            ),
-           textAlign: TextAlign.justify,
+          padding: const EdgeInsets.all(20.0),
+          child: Row(
+            children: [
+              // Person icon on the left with background color
+              Container(
+                padding: const EdgeInsets.all(8.0), // Padding around the icon
+                decoration: BoxDecoration(
+                  color: const Color.fromARGB(255, 223, 224, 225), // Background color of the icon
+                  shape: BoxShape.circle, // Circular shape
+                ),
+                child: Icon(
+                  Icons.location_on,
+                  color: const Color.fromARGB(255, 140, 198, 7),
+                  size: 30,
+                ),
+              ),
+              SizedBox(width: 16), // Space between icons
+              // Location icon and text centered below the person icon
+              Column(
+                children: [
+                  // Location icon
+                  
+                  SizedBox(height: 4), // Space between icon and text
+                  // Location text
+                  Text(
+                    'College of Engineering Chengannur',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.white,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+              Spacer(), // Spacer to push the notification icon to the right
+              // Notification icon on the right with background color
+              Container(
+                padding: const EdgeInsets.all(8.0), // Padding around the icon
+                decoration: BoxDecoration(
+                  color: Colors.green, // Background color of the icon
+                  shape: BoxShape.circle, // Circular shape
+                ),
+                child: Icon(
+                  Icons.person,
+                  color: Colors.white,
+                  size: 30,
+                ),
+              ),
+              
+            ],
           ),
         ),
-        // Button container
-       Padding(
-  padding: const EdgeInsets.all(8.0),
-  child: Align(
-    alignment: Alignment.centerLeft, // Aligns the button to the left
-    child: ElevatedButton(
-      onPressed: () {
-        // Handle button press here
-      },
-      style: ElevatedButton.styleFrom(
-        foregroundColor: Colors.blue, // Button color
-        padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0), // Adjust padding for smaller button
-      ),
-      child: Text(
-        'Click Here',
-        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold), // Smaller text size for a smaller button
-      ),
-    ),
-  ),
-)
+        // Random text or content
+        
+         Padding(
+          padding: EdgeInsets.only(bottom: 30,left: 20),
 
+           child: Row(
+            
+          
+             children: [
+               Column(
+                         
+                 children: [
+                   Text(
+                              'Welcome P6anav!',
+                               style: GoogleFonts.openSans(
+                fontSize: 22,
+                color: const Color.fromARGB(255, 242, 244, 245),
+                fontWeight: FontWeight.bold,
+              ),
+                                textAlign: TextAlign.left),
+                 ],
+               ),
+             ],
+           ),
+         )
+        // Button container
+        
       ],
     ),
   );
@@ -563,7 +610,7 @@ Widget buildCardWithImageTextAndButton() {
       child: Container(
         width: double.infinity,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color:  const Color.fromARGB(255, 39, 38, 38),
           borderRadius: BorderRadius.circular(8),
         ),
         padding: const EdgeInsets.all(16.0),
@@ -574,6 +621,7 @@ Widget buildCardWithImageTextAndButton() {
               'Nearby Parking Spots',
               style: TextStyle(
                 fontSize: 18,
+                  color: Colors.white,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -587,7 +635,7 @@ Widget buildCardWithImageTextAndButton() {
                     'View nearby parking spots and choose the best option.',
                     style: TextStyle(
                       fontSize: 14,
-                      color: Colors.grey[700],
+                      color: Colors.white,
                     ),
                   ),
                 ),
@@ -667,7 +715,7 @@ Widget _buildParkingSpotsList(BuildContext context) {
             return Container(
               margin: const EdgeInsets.only(bottom: 10.0),
               decoration: BoxDecoration(
-                color: const Color.fromARGB(255, 33, 33, 33),
+                color: const Color.fromARGB(255, 70, 71, 72),
                 borderRadius: BorderRadius.circular(12),
                 boxShadow: [
                   BoxShadow(
@@ -686,7 +734,7 @@ Widget _buildParkingSpotsList(BuildContext context) {
                   ClipRRect(
                     borderRadius: BorderRadius.circular(8),
                     child: Image.network(
-                      parkingSpot['imageUrl']!,
+                      parkingSpot['imageUrl'] ?? 'https://via.placeholder.com/150x150', // Fallback image URL
                       width: screenWidth < 600 ? 100 : 150, // Adjust image size for small screens
                       height: screenWidth < 600 ? 190 : 160,
                       fit: BoxFit.cover,
@@ -701,16 +749,16 @@ Widget _buildParkingSpotsList(BuildContext context) {
                       children: [
                         const SizedBox(height: 4),
                         Text(
-                          parkingSpot['name']!,
+                          parkingSpot['name'] ?? 'N/A',
                           style: TextStyle(
-                            fontSize: screenWidth < 600 ? 14 : 16, // Adjust font size
+                            fontSize: screenWidth < 600 ? 20 : 23, // Adjust font size
                             fontWeight: FontWeight.bold,
-                            color: Colors.white,
+                            color: const Color.fromARGB(255, 243, 240, 240),
                           ),
                         ),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 3),
                         Text(
-                          parkingSpot['description']!,
+                          parkingSpot['description'] ?? 'No description available',
                           style: TextStyle(
                             fontSize: screenWidth < 600 ? 12 : 14, // Adjust font size
                             color: Color.fromARGB(255, 246, 245, 245),
@@ -718,19 +766,21 @@ Widget _buildParkingSpotsList(BuildContext context) {
                           maxLines: screenWidth < 600 ? 8 : 10, // Limit lines for smaller screens
                           overflow: TextOverflow.ellipsis,
                         ),
-                        const SizedBox(height: 10),
+                        const SizedBox(height: 50),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.start,
                           children: [
                             ElevatedButton(
-                             onPressed: () async  {
-  _navigateToRoutePage(
-    context,
-    parkingSpot['id'].toString(),   // Ensure parking ID is a String
-    parkingSpot['name']!,
-  );
-},               style: ElevatedButton.styleFrom(
+                              onPressed: () async {
+                                _navigateToRoutePage(
+                                  context,
+                                  parkingSpot['propertyId'].toString(), // Convert int to String
+                                  parkingSpot['name'] ?? 'N/A',
+                                );
+                              },
+                              style: ElevatedButton.styleFrom(
                                 foregroundColor: Colors.blue,
+                                backgroundColor: Colors.black38,
                                 padding: EdgeInsets.symmetric(
                                   horizontal: screenWidth < 600 ? 20 : 30, // Adjust padding
                                   vertical: 10,
@@ -743,14 +793,14 @@ Widget _buildParkingSpotsList(BuildContext context) {
                               onPressed: () {
                                 _navigateToD(
                                   context,
-                                  parkingSpot['id'].toString(), // Ensure parking ID is a String
-                                  parkingSpot['name']!,
+                                  parkingSpot['propertyId'].toString(), // Convert int to String
+                                  parkingSpot['name'] ?? 'N/A',
                                 );
                               },
                               style: ElevatedButton.styleFrom(
                                 foregroundColor: Colors.green,
                                 padding: EdgeInsets.symmetric(
-                                  horizontal: screenWidth < 600 ? 20 : 30, // Adjust padding
+                                  horizontal: screenWidth < 600 ? 30 : 30, // Adjust padding
                                   vertical: 10,
                                 ),
                               ),

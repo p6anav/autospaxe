@@ -5,38 +5,36 @@ class ApiService {
   static const String baseUrl = 'http://localhost:8080/api';
 
   Future<http.Response> login(String email, String password) async {
-    final url = Uri.parse('$baseUrl/auth/login');
-    Map<String, String> loginData = {
-      "email": email,
-      "password": password,
-    };
+    final url = Uri.parse('$baseUrl/users/authenticate')
+        .replace(queryParameters: {'email': email, 'password': password});
 
     final response = await http.post(
       url,
-      headers: {"Content-Type": "application/json"},
-      body: jsonEncode(loginData),
     );
 
     return response;
   }
 
-  
+
   Future<http.Response> signup(String username, String email, String password) async {
-    final url = Uri.parse('$baseUrl/auth/signup');
-    Map<String, String> signupData = {
-      "username": username,
-      "email": email,
-      "password": password,
-    };
+  final baseUrl = 'http://localhost:8080/api/users/register'; // Adjust the base URL as needed
+  final url = Uri.parse(baseUrl);
+  Map<String, String> signupData = {
+    "username": username,
+    "email": email,
+    "password": password,
+    "rolename": "USER", // Default role
+  };
 
-    final response = await http.post(
-      url,
-      headers: {"Content-Type": "application/json"},
-      body: jsonEncode(signupData),
-    );
+  final response = await http.post(
+    url,
+    body: signupData,
+  );
 
-    return response;
-  }
+  return response;
+}
+
+
   Future<http.Response> addVehicle(String vehicleNumber, String brand, String model, String color, int userId) async {
     final url = Uri.parse('$baseUrl/vehicles');
     Map<String, dynamic> vehicleData = {
@@ -59,14 +57,14 @@ class ApiService {
 
 Future<List<Map<String, dynamic>>> getNearbyParkingSpots() async {
   try {
-    final response = await http.get(Uri.parse('$baseUrl/parking-spots'));
+    final response = await http.get(Uri.parse('$baseUrl/properties'));
 
     if (response.statusCode == 200) {
       // Check if the response body is valid JSON
       try {
         List<dynamic> data = jsonDecode(response.body);
         return data.map((spot) => {
-          'id': spot['id'],  // Include the parking spot ID
+          'property_id': spot['property_id'],  // Include the parking spot ID
           'name': spot['name'],
           'description': spot['description'],
           'imageUrl': spot['imageUrl'],
@@ -83,6 +81,8 @@ Future<List<Map<String, dynamic>>> getNearbyParkingSpots() async {
     throw Exception("Network error: $e");
   }
 }
+
+
   Future<List<Map<String, dynamic>>> getVehiclesByUserId(int userId) async {
     final url = Uri.parse('$baseUrl/vehicles/user/$userId');
     final response = await http.get(url);
@@ -100,25 +100,57 @@ Future<List<Map<String, dynamic>>> getNearbyParkingSpots() async {
     }
   }
 
- Future<Map<String, dynamic>> fetchParkingSpotById(int id) async {
-  try {
-    final response = await http.get(Uri.parse('$baseUrl/parking-spots/$id'));
-    if (response.statusCode == 200) {
-      Map<String, dynamic> data = jsonDecode(response.body);
-      return {
-        'id': data['id'],
-        'name': data['name'],
-        'description': data['description'],
-        'imageUrl': data['imageUrl'],
-        'ratePerHour': data['ratePerHour'], // Add this line
-      };
-    } else {
-      throw Exception("Failed to load parking spot: ${response.statusCode}");
+ Future<Map<String, dynamic>?> fetchParkingSpotById(int parkingId) async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/properties/$parkingId'));
+
+      if (response.statusCode == 200) {
+        Map<String, dynamic> data = jsonDecode(response.body);
+        return {
+          'property_id': data['property_id'],
+          'name': data['name'],
+          'floor': data['floor'],
+          'city': data['city'],
+          'district': data['district'],
+          'state': data['state'],
+          'country': data['country'],
+          'google_location': data['google_location'],
+          'property_type': data['property_type'],
+          'total_slots': data['total_slots'],
+          'available_slots': data['available_slots'],
+          'rate_per_hour': data['rate_per_hour'],
+          'description': data['description'],
+          'image_url': data['image_url'],
+          'status': data['status'],
+          'manager_id': data['manager_id'],
+        };
+      } else {
+        throw Exception("Failed to load parking spot: ${response.statusCode}");
+      }
+    } catch (e) {
+      print("Error fetching parking spot: $e");
+      return null;
     }
-  } catch (e) {
-    print("Error fetching parking spot: $e");
-    throw Exception("Network error: $e");
   }
-}
+  Future<List<Map<String, dynamic>>> getNearbyParkingSdpots() async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/properties'));
+
+      if (response.statusCode == 200) {
+        List<dynamic> data = jsonDecode(response.body);
+        return data.map((spot) => {
+          'propertyId': spot['propertyId'].toString(),  // Convert int to String
+          'name': spot['name'] ?? 'N/A',
+          'description': spot['description'] ?? 'N/A',
+          'imageUrl': spot['imageUrl'] ?? 'https://via.placeholder.com/150x150',  // Updated fallback image URL
+        }).toList();
+      } else {
+        throw Exception("Failed to load parking spots: ${response.statusCode}");
+      }
+    } catch (e) {
+      print("Error fetching parking spots: $e");
+      throw Exception("Network error: $e");
+    }
+  }
 
 }
