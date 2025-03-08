@@ -1,7 +1,10 @@
-// ignore_for_file: use_super_parameters
-
+import 'package:autospaze/widget/screens/bookings/DateTimePickerPage.dart';
+import 'package:autospaze/widget/screens/bookings/booking_page_widgets.dart';
+import 'package:autospaze/widget/screens/bookings/loadingbar.dart';
+import 'package:autospaze/widget/screens/invoice/invoice_page.dart';
 import 'package:flutter/material.dart';
-
+import 'package:flutter/services.dart';
+import 'dart:convert';
 
 void main() {
   runApp(const PaymentApp());
@@ -21,36 +24,31 @@ class PaymentApp extends StatelessWidget {
   }
 }
 
-// 1. Theme Class - Handles all styling for the app
 class AppTheme {
-  // Private constructor to prevent instantiation
   AppTheme._();
 
-  // Colors
   static const Color backgroundColor = Color(0xFF171617);
   static const Color cardColor = Color(0xFF171617);
   static const Color primaryColor = Color(0xFF5B78F6);
   static const Color textColor = Color(0xFFA3FD30);
   static const Color secondaryTextColor = Color(0xFFA3FD30);
 
-  // Text Styles
   static const TextStyle headingStyle = TextStyle(
     fontSize: 16,
     fontWeight: FontWeight.w600,
     color: textColor,
   );
-  
+
   static const TextStyle bodyStyle = TextStyle(
     fontSize: 14,
     color: textColor,
   );
-  
+
   static const TextStyle captionStyle = TextStyle(
     fontSize: 12,
     color: secondaryTextColor,
   );
 
-  // Theme Data
   static final ThemeData darkTheme = ThemeData(
     scaffoldBackgroundColor: backgroundColor,
     primaryColor: primaryColor,
@@ -92,18 +90,35 @@ class AppTheme {
       contentPadding: const EdgeInsets.all(16),
     ),
   );
+  
 }
 
-// 2. PaymentMethodsScreen - Shows list of payment methods
 class PaymentMethodsScreen extends StatelessWidget {
   const PaymentMethodsScreen({Key? key}) : super(key: key);
+
+  void _navigateToAddCard(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const AddCardScreen()),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Payment Methods'),
-        leading: const BackButton(),
+        leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () {
+              // Handle back button press
+              Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => LoadingScreen ()),
+    );
+            },
+          ),
+        
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -146,23 +161,15 @@ class PaymentMethodsScreen extends StatelessWidget {
                   onTap: () => _navigateToAddCard(context),
                 ),
               ),
-              const SizedBox(height: 20), // Extra space at the bottom
+              const SizedBox(height: 20),
             ],
           ),
         ),
       ),
     );
   }
-
-  void _navigateToAddCard(BuildContext context) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const AddCardScreen()),
-    );
-  }
 }
 
-// 3. PaymentMethodItem - Individual payment method list item
 class PaymentMethodItem extends StatelessWidget {
   final String logo;
   final String name;
@@ -211,7 +218,6 @@ class PaymentMethodItem extends StatelessWidget {
   }
 }
 
-// 4. AddPaymentButton - Button to add a new payment method
 class AddPaymentButton extends StatelessWidget {
   final VoidCallback onTap;
 
@@ -260,8 +266,7 @@ class AddPaymentButton extends StatelessWidget {
   }
 }
 
-// 5. AddCardScreen - Screen to add a new card
-class AddCardScreen extends StatefulWidget {  // Changed to StatefulWidget
+class AddCardScreen extends StatefulWidget {
   const AddCardScreen({Key? key}) : super(key: key);
 
   @override
@@ -269,14 +274,14 @@ class AddCardScreen extends StatefulWidget {  // Changed to StatefulWidget
 }
 
 class _AddCardScreenState extends State<AddCardScreen> {
-  String _cardholderName = '';  // To store the name
+  String _cardholderName = '';
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Add Payment Methods'),
-        leading: const BackButton(),
+      
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -294,7 +299,7 @@ class _AddCardScreenState extends State<AddCardScreen> {
                 CardForm(
                   onNameChanged: (value) {
                     setState(() {
-                      _cardholderName = value;  // Update the name when it changes
+                      _cardholderName = value;
                     });
                   },
                   onSubmit: () {
@@ -302,7 +307,7 @@ class _AddCardScreenState extends State<AddCardScreen> {
                       context,
                       MaterialPageRoute(
                         builder: (context) => PaymentConfirmationScreen(
-                          cardholderName: _cardholderName.isEmpty ? 'John Henry' : _cardholderName,  // Use the entered name or default
+                          cardholderName: _cardholderName.isEmpty ? 'John Henry' : _cardholderName,
                           cardNumber: '**** **** **** 3947',
                           expiryMonth: '12',
                           expiryYear: '2024',
@@ -312,7 +317,7 @@ class _AddCardScreenState extends State<AddCardScreen> {
                     );
                   },
                 ),
-                const SizedBox(height: 20), // Extra space at the bottom
+                const SizedBox(height: 20),
               ],
             ),
           ),
@@ -322,15 +327,14 @@ class _AddCardScreenState extends State<AddCardScreen> {
   }
 }
 
-// 6. CardForm - Form to enter card details
-class CardForm extends StatefulWidget {  // Changed to StatefulWidget
+class CardForm extends StatefulWidget {
   final VoidCallback onSubmit;
-  final Function(String) onNameChanged;  // Added callback for name
+  final Function(String) onNameChanged;
 
   const CardForm({
     Key? key,
     required this.onSubmit,
-    required this.onNameChanged,  // New required parameter
+    required this.onNameChanged,
   }) : super(key: key);
 
   @override
@@ -338,21 +342,18 @@ class CardForm extends StatefulWidget {  // Changed to StatefulWidget
 }
 
 class _CardFormState extends State<CardForm> {
-  // Add controllers for form fields
   final TextEditingController _nameController = TextEditingController();
-  
+
   @override
   void initState() {
     super.initState();
-    // Add listener to the name controller
     _nameController.addListener(() {
       widget.onNameChanged(_nameController.text);
     });
   }
-  
+
   @override
   void dispose() {
-    // Clean up controller when widget is disposed
     _nameController.dispose();
     super.dispose();
   }
@@ -363,7 +364,7 @@ class _CardFormState extends State<CardForm> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         TextFormField(
-          controller: _nameController,  // Use the controller
+          controller: _nameController,
           decoration: const InputDecoration(
             hintText: 'Name ',
           ),
@@ -442,7 +443,6 @@ class _CardFormState extends State<CardForm> {
   }
 }
 
-// Extra class for card preview (shown in the AddCardScreen)
 class CardPreview extends StatelessWidget {
   const CardPreview({Key? key}) : super(key: key);
 
@@ -552,7 +552,6 @@ class CardPreview extends StatelessWidget {
   }
 }
 
-// NEW SCREEN: PaymentConfirmationScreen - Shows entered card details and confirms payment
 class PaymentConfirmationScreen extends StatelessWidget {
   final String cardholderName;
   final String cardNumber;
@@ -576,7 +575,7 @@ class PaymentConfirmationScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Confirm Payment'),
-        leading: const BackButton(),
+      
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -588,8 +587,6 @@ class PaymentConfirmationScreen extends StatelessWidget {
                 const Text('Review your payment details', style: AppTheme.bodyStyle),
                 const Text('Please confirm all information is correct', style: AppTheme.captionStyle),
                 const SizedBox(height: 24),
-                
-                // Card preview in confirmation screen
                 Container(
                   width: double.infinity,
                   height: 200,
@@ -691,11 +688,9 @@ class PaymentConfirmationScreen extends StatelessWidget {
                     ],
                   ),
                 ),
-                
                 const SizedBox(height: 24),
                 _buildDetailItem('Cardholder Name', cardholderName),
                 _buildDetailItem('Card Number', cardNumber),
-                
                 const SizedBox(height: 16),
                 Row(
                   children: [
@@ -708,10 +703,7 @@ class PaymentConfirmationScreen extends StatelessWidget {
                     ),
                   ],
                 ),
-                
                 _buildDetailItem('CVV', cvv),
-                
-                // Payment amount section
                 const SizedBox(height: 24),
                 Container(
                   padding: const EdgeInsets.all(16),
@@ -762,7 +754,6 @@ class PaymentConfirmationScreen extends StatelessWidget {
                     ],
                   ),
                 ),
-                
                 const SizedBox(height: 24),
                 Row(
                   children: [
@@ -774,13 +765,11 @@ class PaymentConfirmationScreen extends StatelessWidget {
                     const Text('Set as default payment method', style: AppTheme.bodyStyle),
                   ],
                 ),
-                
                 const SizedBox(height: 24),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
                     onPressed: () {
-                      // Show confirmation dialog
                       showDialog(
                         context: context,
                         builder: (BuildContext context) {
@@ -799,21 +788,18 @@ class PaymentConfirmationScreen extends StatelessWidget {
                                   style: TextStyle(color: AppTheme.primaryColor.withOpacity(0.7)),
                                 ),
                               ),
-                              ElevatedButton(
-                                onPressed: () {
-                                  Navigator.pop(context); // Close dialog
-                                  // Navigate to success screen with the correct name
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => CardAddedScreen(
-                                        cardholderName: cardholderName,
-                                      ),
-                                    ),
-                                  );
-                                },
-                                child: const Text('Confirm'),
-                              ),
+                           ElevatedButton(
+  onPressed: () {
+    Navigator.pop(context); // Pop the current screen
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => InvoicePage(),
+      ),
+    );
+  },
+  child: const Text('Confirm'),
+),
                             ],
                           );
                         },
@@ -842,7 +828,6 @@ class PaymentConfirmationScreen extends StatelessWidget {
     );
   }
 
-  // Helper method to build detail items
   Widget _buildDetailItem(String label, String value) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -865,190 +850,3 @@ class PaymentConfirmationScreen extends StatelessWidget {
 }
 
 
-// 7. CardAddedScreen - Screen shown after a card is added
-class CardAddedScreen extends StatelessWidget {
-  final String cardholderName;  // Add this parameter
-  
-  const CardAddedScreen({
-    Key? key, 
-    this.cardholderName = 'John Henry',  // Default value in case it's not provided
-  }) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Payment Methods'),
-        leading: const BackButton(),
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('Enter your payment details', style: AppTheme.bodyStyle),
-                const Text('By continuing you agree to our Terms', style: AppTheme.captionStyle),
-                const SizedBox(height: 16),
-                
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        Image.asset(
-                          'assets/images/PayPal.png',
-                          width: 30,
-                          height: 30,
-                        ),
-                        Image.asset(
-                          'assets/images/Visa.png',
-                          width: 30,
-                          height: 30,
-                        ),
-                        Image.asset(
-                          'assets/images/Mastercard.png',
-                          width: 30,
-                          height: 30,
-                        ),
-                        Image.asset(
-                          'assets/images/DC.png',
-                          width: 30,
-                          height: 30,
-                        ),
-                        Image.asset(
-                          'assets/images/Amex.png',
-                          width: 30,
-                          height: 30,
-                        ),
-                      ],
-                    ),
-                    Container(
-                      width: 24,
-                      height: 24,
-                      decoration: BoxDecoration(
-                        color: Colors.green,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Icon(
-                        Icons.check,
-                        color: Colors.white,
-                        size: 16,
-                      ),
-                    ),
-                  ],
-                ),
-                
-                const SizedBox(height: 16),
-                const Text('Cardholder name', style: AppTheme.captionStyle),
-                const SizedBox(height: 8),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: AppTheme.cardColor,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(cardholderName, style: AppTheme.bodyStyle),  // Use the name passed to this screen
-                ),
-                
-                const SizedBox(height: 16),
-                const Text('Card Number', style: AppTheme.captionStyle),
-                const SizedBox(height: 8),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: AppTheme.cardColor,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Text('**** **** **** 3947', style: AppTheme.bodyStyle),
-                ),
-                
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('Exp Month', style: AppTheme.captionStyle),
-                          const SizedBox(height: 8),
-                          Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: AppTheme.cardColor,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Text('12', style: AppTheme.bodyStyle),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('Exp Year', style: AppTheme.captionStyle),
-                          const SizedBox(height: 8),
-                          Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: AppTheme.cardColor,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Text('2024', style: AppTheme.bodyStyle),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                
-                const SizedBox(height: 16),
-                const Text('CVV', style: AppTheme.captionStyle),
-                const SizedBox(height: 8),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: AppTheme.cardColor,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Text('123', style: AppTheme.bodyStyle),
-                ),
-                
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Switch(
-                      value: false,
-                      onChanged: (value) {},
-                      activeColor: AppTheme.primaryColor,
-                    ),
-                    const Text('Set as default', style: AppTheme.bodyStyle),
-                  ],
-                ),
-                
-                const SizedBox(height: 30), // Add spacing
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () {
-                      Navigator.pop(context);
-                      Navigator.pop(context);
-                    },
-                    child: const Text('Add now'),
-                  ),
-                ),
-                const SizedBox(height: 20), // Extra space at the bottom
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}

@@ -606,6 +606,7 @@ void selectSlot(String slotId) {
         ),
       ),
       builder: (BuildContext context) {
+       String slotNumber = slot['slotNumber']?.toString() ?? 'Unknown';
         String slotId = slot['id'] ?? 'Unknown';
         String type = slot['type'] ?? 'Unknown';
         bool isAvailable = slot['availability'] ?? false;
@@ -623,7 +624,7 @@ void selectSlot(String slotId) {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'Slot Details: $slotId',
+                    'Slot Details:$slotNumber',
                     style: TextStyle(
                       fontSize: 23,
                       fontWeight: FontWeight.bold,
@@ -1090,22 +1091,21 @@ class SlotWidget extends StatelessWidget {
               child: Stack(
                 children: [
                   Center(
-                    child: slot.containsKey('type') && slot['type'] != null
-                        ? getIcon(slot['type'])
-                        : Text(
-                            slot.containsKey('id') &&
-                                    slot['id'].contains(RegExp(r'\d+'))
-                                ? RegExp(r'\d+')
-                                    .firstMatch(slot['id'])!
-                                    .group(0)! // Extract number
-                                : '', // Fallback if no number found
-                            style: TextStyle(
-                              color: textColor, // Apply dynamic text color
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                  ),
+  child: slot.containsKey('type') && slot['type'] != null
+      ? getIcon(slot['type'])
+      : Text(
+          slot.containsKey('slotNumber') && slot['slotNumber'] is String
+              ? int.tryParse(slot['slotNumber'])?.toString() ?? ''
+              : slot.containsKey('slotNumber') && slot['slotNumber'] is int
+                  ? slot['slotNumber'].toString()
+                  : '', // Display slotNumber as integer
+          style: TextStyle(
+            color: textColor, // Apply dynamic text color
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+),
                   if (timerText.isNotEmpty)
                     Positioned(
                       bottom: 1,

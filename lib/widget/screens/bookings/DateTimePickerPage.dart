@@ -1,16 +1,16 @@
 import 'dart:convert';
-
-import 'package:autospaze/widget/models/user.dart';
-import 'package:autospaze/widget/providers/user_provider.dart';
-import 'package:autospaze/widget/screens/bookings/BookingPage.dart';
 import 'package:autospaze/widget/screens/bookings/booking_page_widgets.dart';
 import 'package:autospaze/widget/screens/bookings/circular_time_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_ruler_picker/flutter_ruler_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
+
+// Assuming these imports are correct based on your project structure
+import 'package:autospaze/widget/models/user.dart';
+import 'package:autospaze/widget/providers/user_provider.dart';
 
 
 
@@ -22,14 +22,14 @@ class DateTimePickerPage extends StatefulWidget {
 }
 
 class _DateTimePickerPageState extends State<DateTimePickerPage> with SingleTickerProviderStateMixin {
-  // Controllers
   late RulerPickerController _rulerPickerController;
   final ScrollController _scrollController = ScrollController();
   late AnimationController _animationController;
   late Animation<double> _scaleAnimation;
   late Animation<double> _opacityAnimation;
-  late BookingData _bookingData; // Ensure this is initialized
-
+   // Ensure this is initialized
+ 
+  String? _error;
 
   // State variables
   num currentValue = 0;
@@ -37,9 +37,6 @@ class _DateTimePickerPageState extends State<DateTimePickerPage> with SingleTick
   int selectedHours = 1;
   bool _isInteracting = false;
   bool _showButton = false;
-  bool _isLoading = true;
-  
-  String? _error;
 
   // Time ranges for ruler picker
   List<RulerRange> timeRanges = const [
@@ -66,53 +63,12 @@ class _DateTimePickerPageState extends State<DateTimePickerPage> with SingleTick
       CurvedAnimation(parent: _animationController, curve: Curves.easeIn)
     );
 
-    // Initialize _bookingData here
-    _bookingData = BookingData(
-      fromLocation: "New York",
-      toLocation: "Los Angeles",
-      parkingSlot: "A1",
-      bookingTime: "1e0:00 AM",
-      parkingName: "Centrfal Parking Lot",
-      parkingAddress: "123 Main St, New York, NY 10001",
-      parkingRating: 4.5,
-      vehicleOptions: [
-        VehicleOption(brand: "Toyota", model: "Camry", type: "Sedan", isDefault: true),
-        VehicleOption(brand: "Honda", model: "Civic", type: "Sedan", isDefault: false),
-        VehicleOption(brand: "Tesla", model: "Model S", type: "Electric", isDefault: false),
-      ],
-    );
+    // Fetch booking data from API
+   
   }
 
-  Future<void> _loadBookingData() async {
-    try {
-      // Fetch data from the API
-      final userId = 35; // Replace with the actual user ID
-      final url = Uri.parse('http://localhost:8080/api/users/details/$userId');
-      final response = await http.get(url);
+ 
 
-      if (response.statusCode == 200) {
-        final jsonString = response.body;
-        final data = json.decode(jsonString);
-        _bookingData = BookingData.fromJson(data);
-
-        // Print the fetched data
-        print('Fetched Booking Data: $data');
-
-        setState(() {
-          _isLoading = false;
-        });
-      } else {
-        throw Exception('Failed to load booking data: ${response.body}');
-      }
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-        _error = 'Failed to load booking data: $e';
-      });
-    }
-  }
-
-  
   @override
   void dispose() {
     _animationController.dispose();
@@ -129,28 +85,29 @@ class _DateTimePickerPageState extends State<DateTimePickerPage> with SingleTick
     String period = hour >= 12 ? "PM" : "AM";
     int displayHour = hour == 0 ? 12 : (hour > 12 ? hour - 12 : hour);
     return "$displayHour:${minutes.toString().padLeft(2, '0')} $period";
-    
   }
-String formatTimeForTerminal(num value) {
-  if (selectedDate == null) {
-    return "Date not selected";
+
+  String formatTimeForTerminal(num value) {
+    if (selectedDate == null) {
+      return "Date not selected";
+    }
+    int totalMinutes = ((value + 12) * 60).toInt();
+    int hour = (totalMinutes ~/ 60) % 24;
+    int minutes = totalMinutes % 60;
+
+    // Combine the selected date with the calculated time
+    DateTime combinedDateTime = DateTime(
+      selectedDate!.year,
+      selectedDate!.month,
+      selectedDate!.day,
+      hour,
+      minutes,
+    );
+
+    // Format the combined date and time in ISO 8601 format
+    return combinedDateTime.toIso8601String();
   }
-  int totalMinutes = ((value + 12) * 60).toInt();
-  int hour = (totalMinutes ~/ 60) % 24;
-  int minutes = totalMinutes % 60;
 
-  // Combine the selected date with the calculated time
-  DateTime combinedDateTime = DateTime(
-    selectedDate!.year,
-    selectedDate!.month,
-    selectedDate!.day,
-    hour,
-    minutes,
-  );
-
-  // Format the combined date and time in ISO 8601 format
-  return combinedDateTime.toIso8601String();
-}
   String calculateEndTime() {
     int totalMinutes = ((currentValue + 12) * 60).toInt();
     int hour = (totalMinutes ~/ 60) % 24;
@@ -247,87 +204,93 @@ String formatTimeForTerminal(num value) {
       _hideButton();
     }
   }
-void _handleSubmit(BuildContext context) async {
-  // Get the userProvider instance
-  final userProvider = Provider.of<UserProvider>(context, listen: false);
-  final User? user = userProvider.user;
 
-  // Get the booking details as a custom object
-  BookingDetails details = getBookingDetails();
+  void _handleSubmit(BuildContext context) async {
+    // Get the userProvider instance
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final User? user = userProvider.user;
 
-  // Print the booking details to the terminal
-  print('Booking Details:');
-  print('From Time: ${formatTimeForTerminal(currentValue)}'); // Use formatTimeForTerminal
-  print('To Time: ${formatTimeForTerminal(currentValue + selectedHours)}'); // Adjust for end time
-  print('Fare: ${details.fare}');
-  if (details.selectedDate != null) {
-    print('Selected Date: ${DateFormat('yyyy-MM-dd').format(details.selectedDate!)}');
-  } else {
-    print('Selected Date: Not selected');
-  }
+    // Get the booking details as a custom object
+    BookingDetails details = getBookingDetails();
 
-  if (user != null) {
-    // Retrieve the slotId from SharedPreferences
-    final prefs = await SharedPreferences.getInstance();
-    final String? slotId = prefs.getString('slot_id'); // Ensure the key matches what was saved
+    // Print the booking details to the terminal
+    print('Booking Details:');
+    print('From Time: ${formatTimeForTerminal(currentValue)}'); // Use formatTimeForTerminal
+    print('To Time: ${formatTimeForTerminal(currentValue + selectedHours)}'); // Adjust for end time
+    print('Fare: ${details.fare}');
+    if (details.selectedDate != null) {
+      print('Selected Date: ${DateFormat('yyyy-MM-dd').format(details.selectedDate!)}');
+    } else {
+      print('Selected Date: Not selected');
+    }
 
-    // Print statement to verify the slotId retrieval
-    print('Retrieved Slot ID: $slotId');
+    if (user != null) {
+      // Retrieve the slotId from SharedPreferences
+      final prefs = await SharedPreferences.getInstance();
+      final String? slotId = prefs.getString('slot_id'); // Ensure the key matches what was saved
 
-    if (slotId != null) {
-      // Prepare the API request
-      final String exitTime = formatTimeForTerminal(currentValue + selectedHours); // Use formatTimeForTerminal for exit time
-      final String userId = user.id;
+      // Print statement to verify the slotId retrieval
+      print('Retrieved Slot ID: $slotId');
 
-      // Print the request URL
-      print('Request URL: http://localhost:8080/api/parking-slots/$slotId/exit-time?exitTime=$exitTime&userId=$userId');
+      if (slotId != null) {
+        // Prepare the API request
+        final String exitTime = formatTimeForTerminal(currentValue + selectedHours); // Use formatTimeForTerminal for exit time
+        final String userId = user.id;
 
-      // Call the API to update the exit time
-      final response = await http.patch(
-        Uri.parse('http://localhost:8080/api/parking-slots/$slotId/exit-time?exitTime=$exitTime&userId=$userId'),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      );
+        // Print the request URL
+        print('Request URL: http://localhost:8080/api/parking-slots/$slotId/exit-time?exitTime=$exitTime&userId=$userId');
 
-      // Print the response status code and body
-      print('Response Status Code: ${response.statusCode}');
-      print('Response Body: ${response.body}');
-
-      if (response.statusCode == 200) {
-        // Save the fare in the UserProvider
-        await userProvider.setFare(details.fare);
-
-        // Navigate to the BookingPage with the booking data
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => BookingPage(
-              bookingData: _bookingData,
-            ),
-          ),
+        // Call the API to update the exit time
+        final response = await http.patch(
+          Uri.parse('http://localhost:8080/api/parking-slots/$slotId/exit-time?exitTime=$exitTime&userId=$userId'),
+          headers: {
+            'Content-Type': 'application/json',
+          },
         );
+
+        // Print the response status code and body
+        print('Response Status Code: ${response.statusCode}');
+        print('Response Body: ${response.body}');
+
+        if (response.statusCode == 200) {
+          // Save the fare in the UserProvider
+          await userProvider.setFare(details.fare);
+
+          // Navigate to the BookingPage with the booking data
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) =>BookingSlidingPanel(
+                
+              ),
+            ),
+          );
+        } else {
+          // Show an error message
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to update exit time')),
+          );
+        }
       } else {
-        // Show an error message
+        // Show an error message if slotId is not found
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to update exit time')),
+          SnackBar(content: Text('Slot ID not found')),
         );
       }
     } else {
-      // Show an error message if slotId is not found
+      // Show an error message if user is not logged in
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Slot ID not found')),
+        SnackBar(content: Text('User not logged in')),
       );
     }
-  } else {
-    // Show an error message if user is not logged in
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('User not logged in')),
-    );
   }
-}
+
   @override
   Widget build(BuildContext context) {
+    
+
+    
+
     return Scaffold(
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(120),
@@ -549,43 +512,43 @@ void _handleSubmit(BuildContext context) async {
                     ),
                   ),
                   child: Material(
-  color: Colors.transparent,
-  child: InkWell(
-    borderRadius: BorderRadius.circular(30),
-    onTap: _showButton ? () => _handleSubmit(context) : null,
-    splashColor: Colors.white.withOpacity(0.2),
-    highlightColor: Colors.transparent,
-    child: Center(
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Text(
-            'CONFIRM',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 1.2,
-              color: Colors.white,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Container(
-            padding: const EdgeInsets.all(4),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.check,
-              color: Colors.white,
-              size: 20,
-            ),
-          ),
-        ],
-      ),
-    ),
-  ),
-),
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(30),
+                      onTap: _showButton ? () => _handleSubmit(context) : null,
+                      splashColor: Colors.white.withOpacity(0.2),
+                      highlightColor: Colors.transparent,
+                      child: Center(
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Text(
+                              'CONFIRM',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 1.2,
+                                color: Colors.white,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.2),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.check,
+                                color: Colors.white,
+                                size: 20,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -600,7 +563,7 @@ void _handleSubmit(BuildContext context) async {
     String toTime = calculateEndTime();
     String fare = "₹${calculateFare()}";
     
-    return BookingDetails(fromTime: fromTime, toTime: toTime, fare: fare,selectedDate: selectedDate);
+    return BookingDetails(fromTime: fromTime, toTime: toTime, fare: fare, selectedDate: selectedDate);
   }
 }
 
@@ -610,7 +573,7 @@ class BookingDetails {
   final String fare;
   final DateTime? selectedDate;
 
-  BookingDetails({required this.fromTime, required this.toTime, required this.fare, this.selectedDate,});
+  BookingDetails({required this.fromTime, required this.toTime, required this.fare, this.selectedDate});
 }
 
 // Example usage
