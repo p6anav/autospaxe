@@ -1,3 +1,4 @@
+import 'package:autospaze/widget/screens/invoice/invoice_page.dart';
 import 'package:autospaze/widget/screens/status/status.dart';
 import 'package:flutter/material.dart';
 import 'package:autospaze/widget/screens/bottomnav.dart';
@@ -20,7 +21,7 @@ class _MainScreenState extends State<MainScreen> {
   final List<Widget> _screens = [
     HomeScreen(),
     SvgDisplayPage(),  // Maps screen with DateTimePicker
-    Bookmarker(),     // Bookmarks screen
+    InvoicePage(userId: '',),     // Bookmarks screen
     Profile(),        // Profile screen
   ];
 

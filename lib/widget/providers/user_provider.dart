@@ -63,16 +63,20 @@ class UserProvider with ChangeNotifier {
   }
 
   Future<void> setFare(String fare) async {
-    _fare = fare;
-    notifyListeners();
+  // Remove any non-numeric characters (e.g., currency symbols)
+  final numericFare = fare.replaceAll(RegExp(r'[^\d.]'), '');
 
-    // Save fare to SharedPreferences
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.setString('fare', fare);
+  // Save the cleaned fare to SharedPreferences
+  SharedPreferences prefs = await SharedPreferences.getInstance();
+  await prefs.setString('fare', numericFare);
 
-    // Print statement to verify the fare is saved
-    print('Fare saved: $fare');
-  }
+  // Update the local fare value
+  _fare = numericFare;
+  notifyListeners();
+
+  // Print statement to verify the fare is saved
+  print('Fare saved: $_fare');
+}
 
   Future<void> setVehicleId(String vehicleId) async {
     _vehicleId = vehicleId;

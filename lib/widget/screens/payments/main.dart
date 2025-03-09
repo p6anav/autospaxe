@@ -1,10 +1,12 @@
-import 'package:autospaze/widget/screens/bookings/DateTimePickerPage.dart';
 import 'package:autospaze/widget/screens/bookings/booking_page_widgets.dart';
-import 'package:autospaze/widget/screens/bookings/loadingbar.dart';
-import 'package:autospaze/widget/screens/invoice/invoice_page.dart';
+import 'package:autospaze/widget/screens/login/signup_page.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:provider/provider.dart';
+import 'package:autospaze/widget/models/user.dart';
+import 'package:autospaze/widget/providers/user_provider.dart';
+import 'package:autospaze/widget/screens/invoice/invoice_page.dart';
 
 void main() {
   runApp(const PaymentApp());
@@ -23,7 +25,6 @@ class PaymentApp extends StatelessWidget {
     );
   }
 }
-
 class AppTheme {
   AppTheme._();
 
@@ -92,33 +93,198 @@ class AppTheme {
   );
   
 }
+class VehicleOption {
+  final int id; // Add an ID property
+  final String brand;
+  final String model;
+  final String type;
+  final bool isDefault;
 
-class PaymentMethodsScreen extends StatelessWidget {
-  const PaymentMethodsScreen({Key? key}) : super(key: key);
+  const VehicleOption({
+    required this.id, // Include the ID in the constructor
+    required this.brand,
+    required this.model,
+    required this.type,
+    this.isDefault = false,
+  });
 
-  void _navigateToAddCard(BuildContext context) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const AddCardScreen()),
+  factory VehicleOption.fromJson(Map<String, dynamic> json) {
+    return VehicleOption(
+      id: json['id'] ?? 0, // Assume there's an 'id' field in the JSON
+      brand: json['brand'] ?? '',
+      model: json['vehicleNumber'] ?? '',
+      type: json['color'] ?? '',
+      isDefault: json['isDefault'] ?? false,
     );
   }
+}
+class BookingData {
+  final int userId;
+  final String fromLocation;
+  final String toLocation;
+  final String parkingSlot;
+  final String bookingTime;
+  final String parkingName;
+  final String parkingAddress;
+  final double parkingRating;
+  final String parkingImage;
+  final List<VehicleOption> vehicleOptions;
+  final int propertyId;
+  final int propertySlotsId; // Ensure this is an int
+
+  BookingData({
+    required this.userId,
+    required this.fromLocation,
+    required this.toLocation,
+    required this.parkingSlot,
+    required this.bookingTime,
+    required this.parkingName,
+    required this.parkingAddress,
+    required this.parkingRating,
+    required this.parkingImage,
+    required this.vehicleOptions,
+    required this.propertyId,
+    required this.propertySlotsId, // Include propertySlotsId in the constructor
+  });
+
+  factory BookingData.fromJson(Map<String, dynamic> json) {
+  final user = json['user'] ?? {};
+  final vehicles = json['vehicles'] ?? [];
+  final parkingSlots = json['parkingSlots'] ?? [];
+
+  // Filter parking slots that are marked as 'used'
+  final usedParkingSlots = parkingSlots.where((slot) => slot['used'] == true).toList();
+
+  if (usedParkingSlots.isEmpty) {
+    throw Exception('No used parking slots found');
+  }
+
+  final firstUsedSlot = usedParkingSlots.first;
+
+  // Extract property details from the first used parking slot
+  final property = firstUsedSlot['property'] ?? {};
+  final parkingName = property['name'] ?? 'Unknown';
+  final parkingAddress = property['city'] ?? 'Unknown';
+  final parkingRating = (property['ratePerHour'] as num?)?.toDouble() ?? 0.0;
+  final parkingImage = property['imageUrl'] ?? '';
+  final propertyId = property['propertyId'] ?? 0;
+  final propertySlotsId = int.tryParse(firstUsedSlot['id'].toString()) ?? 0; // Parse id to int
+
+  // Convert slotNumber to string if it is an integer
+  final parkingSlot = firstUsedSlot['slotNumber'] is int
+      ? firstUsedSlot['slotNumber'].toString()
+      : firstUsedSlot['slotNumber'] ?? 'Unknown';
+
+  // Filter vehicles that are marked as 'used'
+  final usedVehicles = vehicles.where((vehicle) => vehicle['used'] == true).toList();
+
+  if (usedVehicles.isEmpty) {
+    throw Exception('No used vehicles found');
+  }
+
+  // Map the list of dynamic to a list of VehicleOption
+  final vehicleOptions = usedVehicles.map((v) => VehicleOption.fromJson(v)).toList().cast<VehicleOption>();
+
+  return BookingData(
+    userId: user['id'] ?? 0,
+    fromLocation: user['location'] ?? 'Chengannur',
+    toLocation: property['name'] ?? 'Unknown',
+    parkingSlot: parkingSlot,
+    bookingTime: firstUsedSlot['exitTime'] ?? 'Unknown',
+    parkingName: parkingName,
+    parkingAddress: parkingAddress,
+    parkingRating: parkingRating,
+    parkingImage: parkingImage,
+    vehicleOptions: vehicleOptions,
+    propertyId: propertyId,
+    propertySlotsId: propertySlotsId,
+  );
+}
+}
+Future<BookingData> fetchBookingData(BuildContext context) async {
+  final userProvider = Provider.of<UserProvider>(context, listen: false);
+  final User? user = userProvider.user;
+
+  if (user == null) {
+    throw Exception('User data is not available');
+  }
+
+  final userId = user.id;
+  final response = await http.get(Uri.parse('http://localhost:8080/api/users/details/$userId'));
+
+  if (response.statusCode == 200) {
+    return BookingData.fromJson(json.decode(response.body));
+  } else {
+    throw Exception('Failed to load booking data: ${response.statusCode}');
+  }
+}
+Map<String, dynamic> extractPaymentDetails(BookingData bookingData, UserProvider userProvider) {
+  // Ensure that there are used vehicles available
+  if (bookingData.vehicleOptions.isEmpty) {
+    throw Exception('No used vehicles found');
+  }
+
+  // Retrieve fare from UserProvider and parse it to a double
+  final fare = double.tryParse(userProvider.fare) ?? 0.0;
+
+  var booking = {
+    "userId": bookingData.userId,
+    "vehicleId": bookingData.vehicleOptions.first.id, // Use the first used vehicle's ID
+    "propertySlotsId": bookingData.propertySlotsId,
+    "propertyId": bookingData.propertyId,
+    "remainingTime": 2,
+    "extraTime": 30,
+    "extraTimeCharge": 0.00,
+    "status": "Cancelled",
+    "slotId": bookingData.parkingSlot,
+  };
+
+  var payment = {
+    "userId": bookingData.userId,
+    "amount": fare, // Use the fare from UserProvider
+    "paymentMethod": "CREDIT_CARD",
+  };
+
+  return {
+    "booking": booking,
+    "payment": payment,
+  };
+}
+Future<void> makePayment(Map<String, dynamic> paymentDetails) async {
+  var response = await http.post(
+    Uri.parse('http://localhost:8080/api/payment/combined/process'),
+    headers: {'Content-Type': 'application/json'},
+    body: jsonEncode(paymentDetails),
+  );
+
+  if (response.statusCode == 200) {
+    // Payment successful
+    print('Payment successful');
+  } else {
+    // Payment failed
+    print('Payment failed: ${response.body}');
+    throw Exception('Failed to make payment');
+  }
+}
+class PaymentMethodsScreen extends StatelessWidget {
+  const PaymentMethodsScreen({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Payment Methods'),
         leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
-            onPressed: () {
-              // Handle back button press
-              Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => LoadingScreen ()),
-    );
-            },
-          ),
-        
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            if (Navigator.of(context).canPop()) {
+              Navigator.of(context).pop();
+            } else {
+              // Handle the case where there is no previous route
+              print('No previous route to pop to.');
+            }
+          },
+        ),
+        title: const Text('Payment Methods'),
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -161,59 +327,19 @@ class PaymentMethodsScreen extends StatelessWidget {
                   onTap: () => _navigateToAddCard(context),
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 6), // Extra space at the bottom
             ],
           ),
         ),
       ),
     );
   }
-}
 
-class PaymentMethodItem extends StatelessWidget {
-  final String logo;
-  final String name;
-  final VoidCallback onTap;
 
-  const PaymentMethodItem({
-    Key? key,
-    required this.logo,
-    required this.name,
-    required this.onTap,
-  }) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: const BoxDecoration(
-          border: Border(
-            bottom: BorderSide(
-              color: Color(0xFF2A2A2A),
-              width: 0.5,
-            ),
-          ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: AppTheme.cardColor,
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Image.asset(logo, width: 30, height: 30),
-            ),
-            const SizedBox(width: 16),
-            Text(name, style: AppTheme.bodyStyle),
-            const Spacer(),
-            const Icon(Icons.chevron_right, color: Color(0xFF2F50FD)),
-          ],
-        ),
-      ),
+  void _navigateToAddCard(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const AddCardScreen()),
     );
   }
 }
@@ -266,7 +392,8 @@ class AddPaymentButton extends StatelessWidget {
   }
 }
 
-class AddCardScreen extends StatefulWidget {
+
+class AddCardScreen extends StatefulWidget {  // Changed to StatefulWidget
   const AddCardScreen({Key? key}) : super(key: key);
 
   @override
@@ -274,14 +401,14 @@ class AddCardScreen extends StatefulWidget {
 }
 
 class _AddCardScreenState extends State<AddCardScreen> {
-  String _cardholderName = '';
+  String _cardholderName = '';  // To store the name
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Add Payment Methods'),
-      
+        leading: const BackButton(),
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -299,7 +426,7 @@ class _AddCardScreenState extends State<AddCardScreen> {
                 CardForm(
                   onNameChanged: (value) {
                     setState(() {
-                      _cardholderName = value;
+                      _cardholderName = value;  // Update the name when it changes
                     });
                   },
                   onSubmit: () {
@@ -307,7 +434,7 @@ class _AddCardScreenState extends State<AddCardScreen> {
                       context,
                       MaterialPageRoute(
                         builder: (context) => PaymentConfirmationScreen(
-                          cardholderName: _cardholderName.isEmpty ? 'John Henry' : _cardholderName,
+                          cardholderName: _cardholderName.isEmpty ? 'John Henry' : _cardholderName,  // Use the entered name or default
                           cardNumber: '**** **** **** 3947',
                           expiryMonth: '12',
                           expiryYear: '2024',
@@ -317,7 +444,7 @@ class _AddCardScreenState extends State<AddCardScreen> {
                     );
                   },
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 20), // Extra space at the bottom
               ],
             ),
           ),
@@ -343,7 +470,12 @@ class CardForm extends StatefulWidget {
 
 class _CardFormState extends State<CardForm> {
   final TextEditingController _nameController = TextEditingController();
-
+  final TextEditingController _cardNumberController = TextEditingController();
+  final TextEditingController _cvvController = TextEditingController();
+  String? _selectedMonth;
+  String? _selectedYear;
+  bool _isDefault = true;
+  
   @override
   void initState() {
     super.initState();
@@ -351,91 +483,136 @@ class _CardFormState extends State<CardForm> {
       widget.onNameChanged(_nameController.text);
     });
   }
-
+  
   @override
   void dispose() {
     _nameController.dispose();
+    _cardNumberController.dispose();
+    _cvvController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    // Calculate bottom padding to avoid navigation bar
+    final bottomPadding = MediaQuery.of(context).padding.bottom + 16;
+    
+    return Stack(
       children: [
-        TextFormField(
-          controller: _nameController,
-          decoration: const InputDecoration(
-            hintText: 'Name ',
-          ),
-        ),
-        const SizedBox(height: 16),
-        TextFormField(
-          decoration: const InputDecoration(
-            hintText: 'Card Number',
-          ),
-          keyboardType: TextInputType.number,
-        ),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(
-              child: DropdownButtonFormField<String>(
+        // Main form content
+        SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextFormField(
+                controller: _nameController,
                 decoration: const InputDecoration(
-                  hintText: 'Month',
+                  hintText: 'Name ',
                 ),
-                items: List.generate(
-                  12,
-                  (index) => DropdownMenuItem(
-                    value: (index + 1).toString().padLeft(2, '0'),
-                    child: Text((index + 1).toString().padLeft(2, '0')),
-                  ),
-                ),
-                onChanged: (value) {},
               ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: DropdownButtonFormField<String>(
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _cardNumberController,
                 decoration: const InputDecoration(
-                  hintText: 'Year',
+                  hintText: 'Card Number',
                 ),
-                items: List.generate(
-                  10,
-                  (index) => DropdownMenuItem(
-                    value: (DateTime.now().year + index).toString(),
-                    child: Text((DateTime.now().year + index).toString()),
-                  ),
-                ),
-                onChanged: (value) {},
+                keyboardType: TextInputType.number,
               ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        TextFormField(
-          decoration: const InputDecoration(
-            hintText: 'CVV',
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: DropdownButtonFormField<String>(
+                      decoration: const InputDecoration(
+                        hintText: 'Month',
+                      ),
+                      value: _selectedMonth,
+                      items: List.generate(
+                        12,
+                        (index) => DropdownMenuItem(
+                          value: (index + 1).toString().padLeft(2, '0'),
+                          child: Text((index + 1).toString().padLeft(2, '0')),
+                        ),
+                      ),
+                      onChanged: (value) {
+                        setState(() {
+                          _selectedMonth = value;
+                        });
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: DropdownButtonFormField<String>(
+                      decoration: const InputDecoration(
+                        hintText: 'Year',
+                      ),
+                      value: _selectedYear,
+                      items: List.generate(
+                        10,
+                        (index) => DropdownMenuItem(
+                          value: (DateTime.now().year + index).toString(),
+                          child: Text((DateTime.now().year + index).toString()),
+                        ),
+                      ),
+                      onChanged: (value) {
+                        setState(() {
+                          _selectedYear = value;
+                        });
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _cvvController,
+                decoration: const InputDecoration(
+                  hintText: 'CVV',
+                ),
+                keyboardType: TextInputType.number,
+                maxLength: 4, // Allow for Amex cards which have 4-digit CVV
+              ),
+              const SizedBox(height: 16),
+              Column(
+                children: [
+                  Container(
+                    child: Row(
+                      children: [
+                        Switch(
+                          value: _isDefault,
+                          onChanged: (value) {
+                            setState(() {
+                              _isDefault = value;
+                            });
+                          },
+                          activeColor: AppTheme.primaryColor,
+                        ),
+                        const Text('Set as default', style: AppTheme.bodyStyle),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              // Added an additional SizedBox to create more space after the switch
+              const SizedBox(height: 80),
+              // Add extra space at the bottom to avoid navigation bar overlap
+              SizedBox(height: 60 + bottomPadding),
+            ],
           ),
-          keyboardType: TextInputType.number,
         ),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            Switch(
-              value: true,
-              onChanged: (value) {},
-              activeColor: AppTheme.primaryColor,
+
+        // Button positioned at the bottom, adjusted to avoid navigation bar
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: bottomPadding,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            child: ElevatedButton(
+              onPressed: widget.onSubmit,
+              child: const Text('Review Payment'),
             ),
-            const Text('Set as default', style: AppTheme.bodyStyle),
-          ],
-        ),
-        const SizedBox(height: 24),
-        SizedBox(
-          width: double.infinity,
-          child: ElevatedButton(
-            onPressed: widget.onSubmit,
-            child: const Text('Review Payment'),
           ),
         ),
       ],
@@ -551,6 +728,53 @@ class CardPreview extends StatelessWidget {
     );
   }
 }
+class PaymentMethodItem extends StatelessWidget {
+  final String logo;
+  final String name;
+  final VoidCallback onTap;
+
+  const PaymentMethodItem({
+    Key? key,
+    required this.logo,
+    required this.name,
+    required this.onTap,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: const BoxDecoration(
+          border: Border(
+            bottom: BorderSide(
+              color: Color(0xFF2A2A2A),
+              width: 0.5,
+            ),
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: AppTheme.cardColor,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Image.asset(logo, width: 30, height: 30),
+            ),
+            const SizedBox(width: 16),
+            Text(name, style: AppTheme.bodyStyle),
+            const Spacer(),
+            const Icon(Icons.chevron_right, color: Color(0xFF2F50FD)),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 class PaymentConfirmationScreen extends StatelessWidget {
   final String cardholderName;
@@ -570,12 +794,62 @@ class PaymentConfirmationScreen extends StatelessWidget {
     this.isDefault = false,
   }) : super(key: key);
 
-  @override
+  Future<void> _makePayment(BuildContext context) async {
+  try {
+    // Fetch booking data
+    var bookingData = await fetchBookingData(context);
+
+    // Get the UserProvider instance
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+
+    // Extract payment details with fare from UserProvider
+    var paymentDetails = extractPaymentDetails(bookingData, userProvider);
+
+    // Make payment
+    await makePayment(paymentDetails);
+
+    // Navigate to InvoicePage
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => InvoicePage(userId: '',)),
+    );
+  } catch (e) {
+      // Show error dialog
+      showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            backgroundColor: AppTheme.backgroundColor,
+            title: const Text('Payment Failed', style: AppTheme.headingStyle),
+            content: Text(
+              'There was an issue processing your payment. Please try again. Error: $e',
+              style: AppTheme.bodyStyle,
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text(
+                  'OK',
+                  style: TextStyle(color: AppTheme.primaryColor.withOpacity(0.7)),
+                ),
+              ),
+            ],
+          );
+        },
+      );
+    }
+  }
+@override
   Widget build(BuildContext context) {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+
+    // Retrieve fare from UserProvider and format it
+    final fare = double.tryParse(userProvider.fare) ?? 0.0;
+    final formattedFare = fare.toStringAsFixed(2); // Format to 2 decimal places
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Confirm Payment'),
-      
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -714,25 +988,18 @@ class PaymentConfirmationScreen extends StatelessWidget {
                   ),
                   child: Column(
                     children: [
-                      const Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text('Sub total', style: AppTheme.bodyStyle),
-                          Text('\$120.00', style: AppTheme.bodyStyle),
-                        ],
-                      ),
                       const SizedBox(height: 8),
                       const Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text('Tax', style: AppTheme.bodyStyle),
-                          Text('\$10.80', style: AppTheme.bodyStyle),
+                          Text('\$0.0', style: AppTheme.bodyStyle),
                         ],
                       ),
                       const SizedBox(height: 8),
                       Divider(color: AppTheme.primaryColor.withOpacity(0.2)),
                       const SizedBox(height: 8),
-                      const Row(
+                      Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text('Total Amount', 
@@ -742,7 +1009,7 @@ class PaymentConfirmationScreen extends StatelessWidget {
                               color: AppTheme.textColor,
                             ),
                           ),
-                          Text('\$130.80', 
+                          Text('\$$formattedFare', 
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
@@ -770,40 +1037,7 @@ class PaymentConfirmationScreen extends StatelessWidget {
                   width: double.infinity,
                   child: ElevatedButton(
                     onPressed: () {
-                      showDialog(
-                        context: context,
-                        builder: (BuildContext context) {
-                          return AlertDialog(
-                            backgroundColor: AppTheme.backgroundColor,
-                            title: const Text('Confirm Payment', style: AppTheme.headingStyle),
-                            content: const Text(
-                              'Are you sure you want to process payment of \$120.80?',
-                              style: AppTheme.bodyStyle,
-                            ),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Navigator.pop(context),
-                                child: Text(
-                                  'Cancel',
-                                  style: TextStyle(color: AppTheme.primaryColor.withOpacity(0.7)),
-                                ),
-                              ),
-                           ElevatedButton(
-  onPressed: () {
-    Navigator.pop(context); // Pop the current screen
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => InvoicePage(),
-      ),
-    );
-  },
-  child: const Text('Confirm'),
-),
-                            ],
-                          );
-                        },
-                      );
+                      _makePayment(context);
                     },
                     child: const Text('Confirm Payment'),
                   ),
@@ -828,6 +1062,7 @@ class PaymentConfirmationScreen extends StatelessWidget {
     );
   }
 
+
   Widget _buildDetailItem(String label, String value) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -848,5 +1083,3 @@ class PaymentConfirmationScreen extends StatelessWidget {
     );
   }
 }
-
-
