@@ -1,4 +1,5 @@
 import 'package:autospaze/widget/providers/ParkingProvider.dart';
+import 'package:autospaze/widget/screens/Admin/qr_scanner.dart';
 import 'package:autospaze/widget/screens/Home/tesingmap.dart';
 import 'package:autospaze/widget/screens/Home/vehicle.dart';
 import 'package:autospaze/widget/screens/bookings/DateTimePickerPage.dart';
@@ -8,6 +9,7 @@ import 'package:autospaze/widget/screens/bookings/loadingbar.dart';
 import 'package:autospaze/widget/screens/login/login_page.dart';
 import 'package:autospaze/widget/screens/login/test.dart';
 import 'package:autospaze/widget/screens/maps/maps.dart';
+import 'package:autospaze/widget/screens/maps/qrani.dart';
 import 'package:autospaze/widget/screens/payments/main.dart';
 import 'package:autospaze/widget/screens/status/status.dart';
 import 'package:flutter/material.dart';

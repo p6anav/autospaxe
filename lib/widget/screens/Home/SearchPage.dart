@@ -1,6 +1,7 @@
 import 'package:autospaze/widget/providers/ParkingProvider.dart';
 import 'package:autospaze/widget/screens/bookings/loadingbar.dart';
 import 'package:autospaze/widget/screens/maps/datatime.dart';
+import 'package:autospaze/widget/screens/maps/qrani.dart';
 import 'package:autospaze/widget/services/api_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -125,7 +126,7 @@ Future<void> getNearbyParkingSdpots() async {
   }
 Future<Map<String, dynamic>?> fetchParkingSpotById(int parkingId) async {
   try {
-    final response = await http.get(Uri.parse('http://localhost:8080/api/properties/$parkingId'));
+    final response = await http.get(Uri.parse('https://genuine-sindee-43-76539613.koyeb.app/api/properties/$parkingId'));
 
     if (response.statusCode == 200) {
       Map<String, dynamic> data = jsonDecode(response.body);
@@ -338,7 +339,7 @@ Future<Map<String, dynamic>?> fetchParkingSpotById(int parkingId) async {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => LoadingScreen(),
+                        builder: (context) => QRHomePage(),
                       ),
                     );
                   } else {

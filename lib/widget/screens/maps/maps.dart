@@ -171,7 +171,7 @@ class _SvgUpdaterState extends State<SvgUpdater> {
 
   Future<void> holdSlot(String slotId, String userId) async {
     // Define the base URL
-    String baseUrl = 'http://localhost:8080/api/parking-slots/$slotId/hold';
+    String baseUrl = 'https://genuine-sindee-43-76539613.koyeb.app/api/parking-slots/$slotId/hold';
 
     // Define the query parameters
     Map<String, String> queryParams = {
@@ -213,7 +213,7 @@ class _SvgUpdaterState extends State<SvgUpdater> {
 
       final response = await http.get(
         Uri.parse(
-            'http://localhost:8080/api/parking-slots/property/$parkingId'),
+            'https://genuine-sindee-43-76539613.koyeb.app/api/parking-slots/property/$parkingId'),
       );
 
       if (response.statusCode == 200) {
@@ -245,13 +245,14 @@ class _SvgUpdaterState extends State<SvgUpdater> {
     try {
       final response = await http.get(
         Uri.parse(
-            'http://localhost:8080/api/parking-slots/property/$parkingId'),
+            'https://genuine-sindee-43-76539613.koyeb.app/api/parking-slots/property/$parkingId'),
       );
       if (response.statusCode == 200) {
         List<dynamic> data = jsonDecode(response.body);
         setState(() {
           mockSlots =
               data.map((slot) => Map<String, dynamic>.from(slot)).toList();
+              
           for (var slot in mockSlots) {
             String slotId = slot['id'] ?? 'unknown';
             DateTime? endTime = slot['exit_time'] != null
@@ -360,17 +361,15 @@ class _SvgUpdaterState extends State<SvgUpdater> {
       // Initialize slot progress and timers
       for (var slot in mockSlots) {
         String slotId = slot['id'] ?? 'unknown';
-        bool status = slot['status'] == true; // Check if status is true
+         String status = slot['status'] ?? 'UNKNOWN'; // Check if status is true
+if (status == 'ENTRY') {
+      DateTime? exitTime = slot['exitTime'] != null ? parseDateTime(slot['exitTime']) : null;
+      DateTime now = DateTime.now();
 
-        if (status) {
-          DateTime? exitTime = slot['exitTime'] != null ? parseDateTime(slot['exitTime']) : null;
-          DateTime now = DateTime.now();
-
-          Duration remainingTime = exitTime != null ? exitTime.difference(now) : Duration.zero;
-          if (remainingTime < Duration.zero) {
-            remainingTime = Duration.zero;
-          }
-
+      Duration remainingTime = exitTime != null ? exitTime.difference(now) : Duration.zero;
+      if (remainingTime < Duration.zero) {
+        remainingTime = Duration.zero;
+      }
           // Store initial time
           DateTime startTime = parseDateTime(slot['startTime']);
           Duration initialTime = exitTime != null ? exitTime.difference(startTime) : Duration.zero;
@@ -640,141 +639,177 @@ void selectSlot(String slotId) {
               SizedBox(height: 40),
               Text('Type: $type'),
               SizedBox(height: 20),
-              if (isHeld)
-                Column(
-                  children: [
-                    Image.network(
-                      'https://res.cloudinary.com/dwdatqojd/image/upload/v1739980797/hold_lifmpt.png', // Replace with your network image URL
-                      width: 400, // Adjust size of logo
-                      height: 300,
-                      fit: BoxFit.contain, // Adjust the fit property as needed
-                    ),
-                    SizedBox(height: 8),
-                    Text(
-                      'Slot is held. Booking in progress',
-                      style: TextStyle(
-                          color: Colors.orange,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 20),
-                    ),
-                  ],
-                ),
-              if (!isAvailable)
-                Center(
-                  child: Column(
-                    children: [
-                      Image.network(
-                        'https://res.cloudinary.com/dwdatqojd/image/upload/v1739980793/una_dsjrfj.png', // Replace with your network image URL
-                        width: 400, // Adjust size of logo
-                        height: 300,
-                        fit:
-                            BoxFit.contain, // Adjust the fit property as needed
-                      ),
-                      SizedBox(height: 8),
-                      Text(
-                        'This slot is currently unavailable ',
-                        style: TextStyle(
-                            color: const Color.fromARGB(255, 15, 148, 181),
-                            fontWeight: FontWeight.bold,
-                            fontSize: 20),
-                      ),
-                    ],
-                  ),
-                ),
-              SizedBox(height: 40),
-              if (isAvailable && !isHeld)
-                ElevatedButton(
-                  onPressed: () async {
-                    // Get the user ID from UserProvider
-                    final userProvider =
-                        Provider.of<UserProvider>(context, listen: false);
-                    final User? user = userProvider.user;
+          if (isHeld)
+  Column(
+    children: [
+      Image.network(
+        'https://res.cloudinary.com/dwdatqojd/image/upload/v1739980797/hold_lifmpt.png', // Replace with your network image URL
+        width: 400, // Adjust size of logo
+        height: 300,
+        fit: BoxFit.contain, // Adjust the fit property as needed
+      ),
+      SizedBox(height: 8),
+      Text(
+        'Slot is held. Booking in progress',
+        style: TextStyle(
+            color: Colors.orange,
+            fontWeight: FontWeight.bold,
+            fontSize: 20),
+      ),
+      SizedBox(height: 40),
+      Align(
+        alignment: Alignment.centerLeft,
+        child: ElevatedButton(
+          onPressed: null, // Disable the button
+          style: ButtonStyle(
+            backgroundColor: MaterialStateProperty.all<Color>(Colors.orange),
+            foregroundColor: MaterialStateProperty.all<Color>(Colors.white),
+            padding: MaterialStateProperty.all<EdgeInsets>(
+              EdgeInsets.symmetric(horizontal: 30, vertical: 20),
+            ),
+            shape: MaterialStateProperty.all<RoundedRectangleBorder>(
+              RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(30),
+              ),
+            ),
+            elevation: MaterialStateProperty.all(0),
+            textStyle: MaterialStateProperty.all<TextStyle>(
+              TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+          ),
+          child: Text('Slot is Held'),
+        ),
+      ),
+    ],
+  ),
+if (slot.containsKey('status') && slot['status'] == 'BOOKED')
+  Column(
+    children: [
+      Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Image.network(
+              'https://res.cloudinary.com/dwdatqojd/image/upload/v1739980793/una_dsjrfj.png', // Replace with your network image URL
+              width: 400, // Adjust size of logo
+              height: 300,
+              fit: BoxFit.contain, // Adjust the fit property as needed
+            ),
+            SizedBox(height: 8),
+            Text(
+              'This slot is currently booked',
+              style: TextStyle(
+                  color: const Color.fromARGB(255, 15, 148, 181),
+                  fontWeight: FontWeight.bold,
+                  fontSize: 20),
+            ),
+          ],
+        ),
+        
+      ),
+      SizedBox(height: 40),
+      Align(
+        alignment: Alignment.centerLeft,
+        child: ElevatedButton(
+          onPressed: null, // Disable the button
+          style: ButtonStyle(
+            backgroundColor: MaterialStateProperty.all<Color>(Colors.red),
+            foregroundColor: MaterialStateProperty.all<Color>(Colors.white),
+            padding: MaterialStateProperty.all<EdgeInsets>(
+              EdgeInsets.symmetric(horizontal: 30, vertical: 20),
+            ),
+            shape: MaterialStateProperty.all<RoundedRectangleBorder>(
+              RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(30),
+              ),
+            ),
+            elevation: MaterialStateProperty.all(0),
+            textStyle: MaterialStateProperty.all<TextStyle>(
+              TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+          ),
+          child: Text('Slot is Booked'),
+        ),
+      ),
+    ],
+  ),
+if (slot.containsKey('status') && slot['status'] == 'EXIT' && !isHeld)
+  Align(
+    alignment: Alignment.centerLeft,
+    child: ElevatedButton(
+      onPressed: () async {
+        // Get the user ID from UserProvider
+        final userProvider =
+            Provider.of<UserProvider>(context, listen: false);
+        final User? user = userProvider.user;
 
-                    if (user != null) {
-                      // Call the API to hold the slot
-                      final response = await http.patch(
-                        Uri.parse(
-                            'http://localhost:8080/api/parking-slots/$slotId/hold'),
-                        body: {'userId': user.id},
-                      );
+        if (user != null) {
+          // Call the API to hold the slot
+          final response = await http.patch(
+            Uri.parse(
+                'https://genuine-sindee-43-76539613.koyeb.app/api/parking-slots/$slotId/hold'),
+            body: {'userId': user.id},
+          );
 
-                      if (response.statusCode == 200) {
-                        // Save the slotId in SharedPreferences
-                        userProvider.setSlotId(slotId);
+          if (response.statusCode == 200) {
+            // Save the slotId in SharedPreferences
+            userProvider.setSlotId(slotId);
 
-                        // Print success message
-                        print('Slot ID saved successfully: $slotId');
+            // Print success message
+            print('Slot ID saved successfully: $slotId');
 
-                        // Navigate to the next page if the slot is held successfully
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => DateTimePickerPage(),
-                          ),
-                        );
-                      } else {
-                        // Show an error message
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Failed to hold the slot')),
-                        );
-                      }
-                    } else {
-                      // Show an error message if user is not logged in
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('User not logged in')),
-                      );
-                    }
-                  },
-                  style: ButtonStyle(
-                    backgroundColor:
-                        MaterialStateProperty.all<Color>(Colors.green),
-                    padding: MaterialStateProperty.all<EdgeInsets>(
-                      EdgeInsets.symmetric(horizontal: 30, vertical: 20),
-                    ),
-                    shape: MaterialStateProperty.all<RoundedRectangleBorder>(
-                      RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(30),
-                      ),
-                    ),
-                    elevation: MaterialStateProperty.all(5),
-                    textStyle: MaterialStateProperty.all<TextStyle>(
-                      TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                  child: Text('Book Slot'),
-                ),
-              if (!isAvailable || isHeld)
-                ElevatedButton(
-                  onPressed: null,
-                  style: ButtonStyle(
-                    backgroundColor: MaterialStateProperty.all<Color>(
-                        isHeld ? Colors.orange : Colors.grey),
-                    foregroundColor: MaterialStateProperty.all<Color>(isHeld
-                        ? const Color.fromARGB(255, 255, 255, 255)
-                        : const Color.fromARGB(255, 255, 255, 255)),
-                    padding: MaterialStateProperty.all<EdgeInsets>(
-                      EdgeInsets.symmetric(horizontal: 60, vertical: 25),
-                    ),
-                    shape: MaterialStateProperty.all<RoundedRectangleBorder>(
-                      RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(30),
-                      ),
-                    ),
-                    elevation: MaterialStateProperty.all(0),
-                    textStyle: MaterialStateProperty.all<TextStyle>(
-                      TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                  child: Text(isHeld ? 'Slot is Hold' : 'Slot Unavailable'),
-                ),
+            // Navigate to the next page if the slot is held successfully
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => DateTimePickerPage(),
+              ),
+            );
+          } else {
+            // Show an error message
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Failed to hold the slot')),
+            );
+          }
+        } else {
+          // Show an error message if user is not logged in
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('User not logged in')),
+          );
+        }
+      },
+      style: ButtonStyle(
+        backgroundColor:
+            MaterialStateProperty.all<Color>(Colors.green),
+        padding: MaterialStateProperty.all<EdgeInsets>(
+          EdgeInsets.symmetric(horizontal: 30, vertical: 20),
+        ),
+        shape: MaterialStateProperty.all<RoundedRectangleBorder>(
+          RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(30),
+          ),
+        ),
+        elevation: MaterialStateProperty.all(5),
+        textStyle: MaterialStateProperty.all<TextStyle>(
+          TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+      ),
+      child: Text('Book Slot'),
+    ),
+  ),
+              
             ],
           ),
         );
@@ -810,9 +845,7 @@ void selectSlot(String slotId) {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => DateTimeRangePickerScreen(
-                  parkingId: '',
-                ),
+                builder: (context) => MainScreen()
               ),
             );
           },
@@ -1025,14 +1058,15 @@ class SlotWidget extends StatelessWidget {
                 : (slot['reserved'] == 'bike')
                     ? Colors.blueAccent
                     : const Color.fromARGB(255, 40, 237, 10);
-    Color fillColor = isSelected
-        ? const Color.fromARGB(255, 40, 237, 10) // Green for selected slot
-        : slot['hold'] == true
-            ? const Color.fromARGB(255, 207, 207, 207) // Orange for held slots
-            : slot['availability'] == null || slot['availability'] == false
-                ? const Color.fromARGB(
-                    255, 40, 237, 10) // Red for unavailable slots
-                : Colors.white; // White for available slots
+   Color fillColor = isSelected
+    ? const Color.fromARGB(255, 40, 237, 10) // Green for selected slot
+    : slot['hold'] == true
+        ? const Color.fromARGB(255, 207, 207, 207) // Orange for held slots
+        : slot['status'] == 'BOOKED'
+            ? const Color.fromARGB(255, 40, 237, 10)// Red for booked slots
+            : slot['status'] == 'ENTRY'
+                ? const Color.fromARGB(255, 40, 237, 10) // Green for entry slots
+                : Colors.white; // White for available slots // White for available slots
 
     Color textColor = isSelected
         ? Colors.white // White text when selected
@@ -1089,38 +1123,57 @@ class SlotWidget extends StatelessWidget {
                 ),
               ),
               child: Stack(
-                children: [
-                  Center(
-  child: slot.containsKey('type') && slot['type'] != null
-      ? getIcon(slot['type'])
-      : Text(
-          slot.containsKey('slotNumber') && slot['slotNumber'] is String
-              ? int.tryParse(slot['slotNumber'])?.toString() ?? ''
-              : slot.containsKey('slotNumber') && slot['slotNumber'] is int
-                  ? slot['slotNumber'].toString()
-                  : '', // Display slotNumber as integer
-          style: TextStyle(
-            color: textColor, // Apply dynamic text color
-            fontSize: 20,
+  children: [
+    Center(
+      child: slot.containsKey('status')
+          ? (slot['status'] == 'BOOKED'
+              ? Icon(Icons.lock, color: const Color.fromARGB(255, 240, 237, 237)) // Show lock icon for BOOKED status
+              : (slot['status'] == 'ENTRY'
+                  ? (slot.containsKey('type') && slot['type'] != null
+                      ? getIcon(slot['type'])
+                      : Icon(Icons.question_mark, color: Colors.grey)) // Display a default icon if type is null
+                  : Text(
+                      slot.containsKey('slotNumber') && slot['slotNumber'] is String
+                          ? int.tryParse(slot['slotNumber'])?.toString() ?? ''
+                          : slot.containsKey('slotNumber') && slot['slotNumber'] is int
+                              ? slot['slotNumber'].toString()
+                              : '', // Display slotNumber as integer
+                      style: TextStyle(
+                        color: textColor, // Apply dynamic text color
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    )
+              )
+          )
+          : Text(
+              slot.containsKey('slotNumber') && slot['slotNumber'] is String
+                  ? int.tryParse(slot['slotNumber'])?.toString() ?? ''
+                  : slot.containsKey('slotNumber') && slot['slotNumber'] is int
+                      ? slot['slotNumber'].toString()
+                      : '', // Display slotNumber as integer
+              style: TextStyle(
+                color: textColor, // Apply dynamic text color
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+    ),
+    if (timerText.isNotEmpty)
+      Positioned(
+        bottom: 1,
+        left: 4,
+        child: Text(
+          timerText,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 8,
             fontWeight: FontWeight.bold,
           ),
         ),
-),
-                  if (timerText.isNotEmpty)
-                    Positioned(
-                      bottom: 1,
-                      left: 4,
-                      child: Text(
-                        timerText,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 8,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
+      ),
+  ],
+)
             ),
           ],
         ),

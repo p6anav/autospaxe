@@ -4,6 +4,7 @@ import 'package:autospaze/widget/screens/bookings/booking_page_widgets.dart';
 import 'package:autospaze/widget/screens/login/signup_page.dart';
 import 'package:autospaze/widget/screens/maps/datatime.dart';
 import 'package:autospaze/widget/screens/payments/animation.dart';
+import 'package:autospaze/widget/screens/route/success.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -13,11 +14,11 @@ import 'package:autospaze/widget/providers/user_provider.dart';
 import 'package:autospaze/widget/screens/invoice/invoice_page.dart';
 
 void main() {
-  runApp(const PaymentApp());
+  runApp(const PaymentApptwo());
 }
 
-class PaymentApp extends StatelessWidget {
-  const PaymentApp({Key? key}) : super(key: key);
+class PaymentApptwo extends StatelessWidget {
+  const PaymentApptwo({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -158,7 +159,7 @@ Future<BookingData> fetchBookingData(BuildContext context) async {
 
 
 
-Future<void> updateParkingSlotStatus(BuildContext context, {String status = 'BOOKED'}) async {
+/*Future<void> updateParkingSlotStatus(BuildContext context, {String status = 'BOOKED'}) async {
   final userProvider = Provider.of<UserProvider>(context, listen: false);
   final User? user = userProvider.user;
 
@@ -167,7 +168,7 @@ Future<void> updateParkingSlotStatus(BuildContext context, {String status = 'BOO
   }
 
   final userId = user.id;
-  final statusUrl = Uri.parse('https://genuine-sindee-43-76539613.koyeb.app/api/parking-slots/status');
+  final statusUrl = Uri.parse('http://localhost:8080/api/parking-slots/status');
 
   try {
     // Make the PUT request with query parameters
@@ -196,7 +197,7 @@ Future<void> updateParkingSlotStatus(BuildContext context, {String status = 'BOO
     // Handle any errors that occur during the request
     throw Exception('Error updating parking slot status: $e');
   }
-}
+}*/
 Map<String, dynamic> extractPaymentDetails(BookingData bookingData, UserProvider userProvider) {
   // Ensure that there are used vehicles available
   if (bookingData.vehicleOptions.isEmpty) {
@@ -229,9 +230,9 @@ Map<String, dynamic> extractPaymentDetails(BookingData bookingData, UserProvider
     "payment": payment,
   };
 }
-Future<void> makePayment(Map<String, dynamic> paymentDetails) async {
+/*Future<void> makePayment(Map<String, dynamic> paymentDetails) async {
   var response = await http.post(
-    Uri.parse('https://genuine-sindee-43-76539613.koyeb.app/api/payment/combined/process'),
+    Uri.parse('http://localhost:8080/api/payment/process'),
     headers: {'Content-Type': 'application/json'},
     body: jsonEncode(paymentDetails),
   );
@@ -244,7 +245,7 @@ Future<void> makePayment(Map<String, dynamic> paymentDetails) async {
     print('Payment failed: ${response.body}');
     throw Exception('Failed to make payment');
   }
-}
+}*/
 class PaymentMethodsScreen extends StatelessWidget {
   const PaymentMethodsScreen({Key? key}) : super(key: key);
 
@@ -788,12 +789,12 @@ class PaymentConfirmationScreen extends StatelessWidget {
     var paymentDetails = extractPaymentDetails(bookingData, userProvider);
 
     // Make payment
-    await makePayment(paymentDetails);
+    //await makePayment(paymentDetails);
 
     // Navigate to InvoicePage
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => SuccessAnimationPage()),
+      MaterialPageRoute(builder: (context) => SuccessAnimationPagetwo()),
     );
   } catch (e) {
       // Show error dialog
@@ -1026,7 +1027,7 @@ class PaymentConfirmationScreen extends StatelessWidget {
       await _makePayment(context);
 
       // After payment is successful, update the parking slot status to "BOOKED"
-      await updateParkingSlotStatus(context);
+     // await updateParkingSlotStatus(context);
 
       // Optionally, you can navigate to another screen or show a success message
       ScaffoldMessenger.of(context).showSnackBar(

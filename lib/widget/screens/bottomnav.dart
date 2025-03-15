@@ -50,12 +50,12 @@ class Bottomnav extends StatelessWidget {
               onTap: () => onItemTapped(0),
             ),
             _buildNavItem(
-              icon: Icons.map_outlined,
+              icon: Icons.timer_outlined,
               isSelected: currentIndex == 1,
               onTap: () => onItemTapped(1),
             ),
             _buildNavItem(
-              icon: Icons.bookmark_outline,
+              icon: Icons.qr_code_2_outlined,
               isSelected: currentIndex == 2,
               onTap: () => onItemTapped(2),
             ),

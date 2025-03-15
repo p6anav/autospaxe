@@ -60,11 +60,18 @@ dependencies:
   dio: ^5.0.0
   circular_countdown_timer: 
   flutter_ruler_picker: ^1.0.6  # Ruler-based time selection
-  flutter_carousel_widget: ^1.1.0  # For smooth curved hour selection
+  flutter_carousel_widget: ^1.1.0 
+  mobile_scanner: ^5.1.1 # For smooth curved hour selection
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  flutter_launcher_icons: ^0.13.1
+  
+flutter_icons:
+  android: true
+  ios: true
+  image_path: "assets/icon/icon.png"
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is

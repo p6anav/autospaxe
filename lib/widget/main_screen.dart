@@ -20,7 +20,7 @@ class _MainScreenState extends State<MainScreen> {
   // List of screens corresponding to bottom navigation items
   final List<Widget> _screens = [
     HomeScreen(),
-    SvgDisplayPage(),  // Maps screen with DateTimePicker
+   CountdownPage(),  // Maps screen with DateTimePicker
     InvoicePage(userId: '',),     // Bookmarks screen
     Profile(),        // Profile screen
   ];

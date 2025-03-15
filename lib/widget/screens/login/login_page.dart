@@ -183,7 +183,7 @@ Future<String?> getUserId() async {
                     ),
                     const SizedBox(height: 20),
                     Image.network(
-            '', // Replace with your network image URL
+            'https://res.cloudinary.com/dwdatqojd/image/upload/v1738778483/knnx_ioyjrq.png', // Replace with your network image URL
             width: 80, // Adjust size of logo
             height: 80,
             fit: BoxFit.contain, // Adjust the fit property as needed

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:autospaze/widget/screens/bookings/booking_page_widgets.dart';
 import 'package:autospaze/widget/screens/bookings/circular_time_picker.dart';
+import 'package:autospaze/widget/screens/route/paymenttwo.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_ruler_picker/flutter_ruler_picker.dart';
 import 'package:intl/intl.dart';
@@ -14,14 +15,14 @@ import 'package:autospaze/widget/providers/user_provider.dart';
 
 
 
-class DateTimePickerPage extends StatefulWidget {
-  const DateTimePickerPage({super.key});
+class DateTimePickerPagetwo extends StatefulWidget {
+  const DateTimePickerPagetwo({super.key});
 
   @override
   _DateTimePickerPageState createState() => _DateTimePickerPageState();
 }
 
-class _DateTimePickerPageState extends State<DateTimePickerPage> with SingleTickerProviderStateMixin {
+class _DateTimePickerPageState extends State<DateTimePickerPagetwo> with SingleTickerProviderStateMixin {
   late RulerPickerController _rulerPickerController;
   final ScrollController _scrollController = ScrollController();
   late AnimationController _animationController;
@@ -260,9 +261,7 @@ class _DateTimePickerPageState extends State<DateTimePickerPage> with SingleTick
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) =>BookingSlidingPanel(
-                
-              ),
+              builder: (context) =>PaymentApptwo()
             ),
           );
         } else {
@@ -295,7 +294,7 @@ class _DateTimePickerPageState extends State<DateTimePickerPage> with SingleTick
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(120),
         child: AppBar(
-          backgroundColor: Colors.white.withOpacity(0.5),
+          backgroundColor: const Color.fromARGB(255, 4, 4, 4).withOpacity(0.5),
           elevation: 0,
           flexibleSpace: Padding(
             padding: const EdgeInsets.only(top: 40, left: 16, right: 16),
@@ -578,5 +577,5 @@ class BookingDetails {
 
 // Example usage
 void main() {
-  runApp(MaterialApp(home: DateTimePickerPage()));
+  runApp(MaterialApp(home: DateTimePickerPagetwo()));
 }

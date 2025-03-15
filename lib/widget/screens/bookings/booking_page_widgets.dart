@@ -126,7 +126,7 @@ factory BookingData.fromJson(Map<String, dynamic> json) {
 }
   static Future<BookingData> fetchBookingData() async {
      final int userId = 2;
-    final response = await http.get(Uri.parse('http://localhost:8080/api/users/$userId/used-slots'));
+    final response = await http.get(Uri.parse('https://genuine-sindee-43-76539613.koyeb.app/api/users/$userId/used-slots'));
 
     if (response.statusCode == 200) {
       return BookingData.fromJson(json.decode(response.body));
@@ -163,7 +163,7 @@ class _BookingSlidingPanelState extends State<BookingSlidingPanel> {
     }
 
     final userId = user.id;
-    final response = await http.get(Uri.parse('http://localhost:8080/api/users/details/$userId'));
+    final response = await http.get(Uri.parse('https://genuine-sindee-43-76539613.koyeb.app/api/users/details/$userId'));
 
     if (response.statusCode == 200) {
       return BookingData.fromJson(json.decode(response.body));
@@ -251,7 +251,7 @@ class _BookingSlidingPanelState extends State<BookingSlidingPanel> {
 }
 
 Future<void> updateVehicleStatus(String vehicleId, bool isUsed, String userId) async {
-  final String apiUrl = 'http://localhost:8080/api/vehicles/';
+  final String apiUrl = 'https://genuine-sindee-43-76539613.koyeb.app/api/vehicles/';
   final Uri url = Uri.parse('$apiUrl$vehicleId/status?isUsed=$isUsed&userId=$userId');
 
   try {

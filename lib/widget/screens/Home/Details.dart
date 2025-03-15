@@ -52,7 +52,7 @@ class _TomTomRoutingPageState extends State<TomTomRoutD> {
 
   Future<Map<String, dynamic>?> fetchParkingSpotById(int parkingId) async {
     try {
-      final response = await http.get(Uri.parse('http://localhost:8080/api/properties/$parkingId'));
+      final response = await http.get(Uri.parse('https://genuine-sindee-43-76539613.koyeb.app/api/properties/$parkingId'));
 
       if (response.statusCode == 200) {
         Map<String, dynamic> data = jsonDecode(response.body);

@@ -77,7 +77,7 @@ class _DateTimeRangePickerScreenState extends State<DateTimeRangePickerScreen> {
   Future<Map<String, dynamic>?> fetchParkingSpotById(int parkingId) async {
     try {
       final response = await http
-          .get(Uri.parse('http://localhost:8080/api/parking-slots/$parkingId'));
+          .get(Uri.parse('https://genuine-sindee-43-76539613.koyeb.app/api/parking-slots/$parkingId'));
 
       if (response.statusCode == 200) {
         Map<String, dynamic> data = jsonDecode(response.body);

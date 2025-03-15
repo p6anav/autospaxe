@@ -7,6 +7,8 @@ import 'package:qr_flutter/qr_flutter.dart'; // Added QR code package
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
+import 'package:shared_preferences/shared_preferences.dart';
+
 // Model class for User
 
 class VehicleOption {
@@ -200,7 +202,51 @@ class BookingData {
 }
 
 // UserProvider
+Future<void> releaseSlot(BuildContext context) async {
+  // Get the user ID from UserProvider
+  final userProvider = Provider.of<UserProvider>(context, listen: false);
+  final User? user = userProvider.user;
 
+  if (user == null) {
+    throw Exception('User data is not available');
+  }
+
+  final userId = user.id;
+
+  // Get the slot ID from SharedPreferences
+  final prefs = await SharedPreferences.getInstance();
+  final String? slotId = prefs.getString('slot_id');
+
+  if (slotId == null) {
+    throw Exception('Slot ID is not available');
+  }
+
+  // Define the base URL for releasing the slot
+  String baseUrl = 'https://genuine-sindee-43-76539613.koyeb.app/api/parking-slots/$slotId/release';
+
+  // Define the query parameters
+  Map<String, String> queryParams = {
+    'userId': userId,
+  };
+
+  // Construct the full URL with query parameters
+  Uri uri = Uri.parse(baseUrl).replace(queryParameters: queryParams);
+
+  // Make the PATCH request to release the slot
+  final response = await http.patch(
+    uri,
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  );
+
+  // Check the response status code
+  if (response.statusCode == 200) {
+    print('Slot released successfully');
+  } else {
+    print('Failed to release slot: ${response.body}');
+  }
+}
 
 // Function to fetch booking data
 Future<BookingData> fetchBookingData(BuildContext context) async {
@@ -212,7 +258,7 @@ Future<BookingData> fetchBookingData(BuildContext context) async {
   }
 
   final userId = user.id;
-  final response = await http.get(Uri.parse('http://localhost:8080/api/users/details/$userId'));
+  final response = await http.get(Uri.parse('https://genuine-sindee-43-76539613.koyeb.app/api/users/details/$userId'));
 
   if (response.statusCode == 200) {
     return BookingData.fromJson(json.decode(response.body));
@@ -257,6 +303,18 @@ class _InvoicePageState extends State<InvoicePage> with SingleTickerProviderStat
     _fetchBookingData();
   }
 
+Future<void> _releaseSlotAndFetchData() async {
+  try {
+    // First, release the slot
+    await releaseSlot(context);
+
+    // After releasing the slot, fetch the booking data
+    await _fetchBookingData();
+  } catch (e) {
+    // Handle any errors that occur during the requests
+    print('Error releasing slot or fetching booking data: $e');
+  }
+}
   Future<void> _fetchBookingData() async {
     try {
       final bookingData = await fetchBookingData(context);

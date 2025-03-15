@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class ApiService {
-  static const String baseUrl = 'http://localhost:8080/api';
+  static const String baseUrl = 'https://genuine-sindee-43-76539613.koyeb.app/api';
 
   Future<http.Response> login(String email, String password) async {
     final url = Uri.parse('$baseUrl/users/authenticate')
@@ -17,7 +17,7 @@ class ApiService {
 
 
   Future<http.Response> signup(String username, String email, String password) async {
-  final baseUrl = 'http://localhost:8080/api/users/register'; // Adjust the base URL as needed
+  final baseUrl = 'https://genuine-sindee-43-76539613.koyeb.app/api/users/register'; // Adjust the base URL as needed
   final url = Uri.parse(baseUrl);
   Map<String, String> signupData = {
     "username": username,
